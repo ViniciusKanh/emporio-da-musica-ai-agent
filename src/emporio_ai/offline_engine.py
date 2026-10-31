@@ -543,11 +543,11 @@ class OfflineEngine:
                 "**wind-instrument mouthpieces**, for hygiene reasons."))
         elif self._rule_ok("regret_days"):
             parts.append(_t(lang,
-                f"Pode sim, se a compra foi **online**: pelo direito de arrependimento você tem até **{r.regret_days} dias corridos "
+                f"Se a compra foi **online**, vale o direito de arrependimento: você tem até **{r.regret_days} dias corridos "
                 f"após o recebimento** para pedir a devolução, sem precisar justificar. O produto deve estar na embalagem "
                 f"original, sem sinais de uso e com todos os acessórios e manuais. O frete de devolução fica por conta da loja e "
                 f"o reembolso é feito na mesma forma de pagamento em até {r.refund_business_days} dias úteis.",
-                f"Yes, if you bought **online**: under the right of withdrawal you have up to **{r.regret_days} calendar days "
+                f"If you bought **online**, the right of withdrawal applies: you have up to **{r.regret_days} calendar days "
                 f"after receiving** the product to return it, no justification needed. It must be in the original packaging, "
                 f"unused, with all accessories and manuals. Return shipping is paid by the store and the refund goes back to "
                 f"the original payment method within {r.refund_business_days} business days."))
@@ -797,6 +797,20 @@ class OfflineEngine:
                       "For security reasons I can't make more order lookups in this conversation. "
                       + self._human_contact_line(lang)), [], True
         if route.order_id is None and state.verified_order and not route.email:
+            order = state.verified_order_view or {}
+            if order and re.search(r"\b(quando|chega|chegar|previsao|prazo|when|arrive|eta)\b", route.norm):
+                self.tools.call("get_order_status", {"order_id": state.verified_order[0], "email": state.verified_order[1]})
+                if order.get("status") == "shipped" and order.get("estimated_delivery"):
+                    msg = _t(lang, f"O pedido #{order['order_id']} consta como **enviado**, com previsão de entrega registrada para "
+                                   f"**{order['estimated_delivery']}**. Para a posição atualizada, acompanhe o código "
+                                   f"{order['tracking_code']} no site dos Correios ou da Jadlog — eu não tenho acesso ao "
+                                   "rastreamento em tempo real. Se a previsão já passou e o pedido não chegou: "
+                                   + self._human_contact_line(lang),
+                             f"Order #{order['order_id']} is recorded as **shipped**, with an estimated delivery of "
+                             f"**{order['estimated_delivery']}**. For the latest position, track code {order['tracking_code']} "
+                             "on the Correios or Jadlog website — I don't have real-time tracking. If the estimate has passed "
+                             "and it hasn't arrived: " + self._human_contact_line(lang))
+                    return msg, ["orders.csv"], False
             route.order_id = state.verified_order[0]
             route.email = state.verified_order[1]
         if route.order_id is None or not route.email:
