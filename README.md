@@ -340,7 +340,7 @@ Why the agent behaves this way in the most important decisions:
 
 ### Requirements
 
-Python **3.10+** (tested on 3.13 in the development environment), `pip`. No GPU.
+Python **3.10+** (test suite run on Python 3.13 with pandas 3.0 and on Python 3.10 with pandas 2.3), `pip`. No GPU.
 
 ### Installation
 
