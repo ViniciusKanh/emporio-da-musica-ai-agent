@@ -1,0 +1,30 @@
+flowchart TB
+    U["Customer message<br/>Gradio · CLI · Colab"] --> G["Input guardrails<br/>prompt injection · bulk-data requests · unauthorized actions"]
+    G --> A{"EmporioAgent<br/>mode selection"}
+    A -- "API key present" --> L["Gemini (google-genai)<br/>native function calling<br/>e-mails tokenised"]
+    A -- "no key · provider error ·<br/>grounding failure" --> O["Offline engine<br/>multi-intent router + grounded templates"]
+    L -- "function calls" --> T
+    O -- "direct calls" --> T
+    subgraph T["Read-only tool layer: typed, validated, traced"]
+        direction LR
+        T1["search_products<br/>get_product_details"]
+        T2["list_promotions<br/>calculate_payment_options"]
+        T3["get_order_status<br/>order id + e-mail"]
+        T4["search_store_policies<br/>get_store_info<br/>estimate_shipping"]
+    end
+    T1 --> C["CatalogService + BusinessRules<br/>pandas"]
+    T2 --> C
+    T3 --> OS["OrderService"]
+    T4 --> K["Policy RAG<br/>section chunks · BM25 · page citations"]
+    C --> D[("6 CSV snapshots<br/>validated on load")]
+    OS --> D
+    K --> P[("Policy manual<br/>PDF or Markdown")]
+    L --> V["Grounding check<br/>every R$ value must come from a tool · no PII"]
+    V --> R["Answer + mode + intents + tools + sources"]
+    O --> R
+    classDef navy fill:#0b2545,stroke:#0b2545,color:#ffffff
+    classDef magenta fill:#c2185b,stroke:#c2185b,color:#ffffff
+    classDef light fill:#f4f6fb,stroke:#0b2545,color:#0b2545
+    class U,R navy
+    class L,O magenta
+    class G,A,V,C,OS,K,T1,T2,T3,T4,D,P light
