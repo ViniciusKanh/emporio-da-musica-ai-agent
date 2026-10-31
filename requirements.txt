@@ -4,6 +4,6 @@ pypdf>=4.0
 # LLM provider (official Google Gen AI SDK) - optional at runtime, the agent falls back to offline mode
 google-genai>=1.0
 # User interface
-gradio>=5.0
+gradio>=6.0,<7  # the UI uses Gradio 6 APIs (theme/css passed to launch, Chatbot buttons)
 # Tests
 pytest>=8.0
