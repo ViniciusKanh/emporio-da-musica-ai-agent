@@ -21,9 +21,8 @@
 > - **Giannini GN-15 Nylon Cedr Natural** — R$ 689,00
 > - **Yamaha F310 Aço Natural** — R$ 699,90
 > - **Tagima Dallas Tuner Aço Natural** — R$ 749,00
-> (Mostrando 8 de 12 opções. Quer filtrar por faixa de preço ou tipo?)
-> Obs.: 2 item(ns) que atenderiam à busca estão sem estoque ou fora de linha, por isso não aparecem na lista.
-> Preços já consideram promoções vigentes. No PIX há 5% de desconto em itens fora de promoção.
+>
+> (Mostrando 8 de 12 opções. Quer filtrar por faixa de preço ou tipo?) Obs.: 2 item(ns) que atenderiam à busca estão sem estoque ou fora de linha, por isso não aparecem na lista. Preços já consideram promoções vigentes. No PIX há 5% de desconto em itens fora de promoção.
 >
 > Posso ajudar em mais alguma coisa?
 
@@ -43,6 +42,7 @@
 > - **Shelby SN-100 Folk Aço Preto** — R$ 549,00
 > - **Giannini GF-1R Aço Folk Sunburst** — R$ 579,90
 > - **Yamaha C40 Nylon Natural** — R$ 599,90
+>
 > Preços já consideram promoções vigentes. No PIX há 5% de desconto em itens fora de promoção.
 >
 > Posso ajudar em mais alguma coisa?
@@ -62,6 +62,7 @@
 > - **Rozini RC-104 Nylon Estudante** — R$ 459,90
 > - **Yamaha C40 Nylon Natural** — R$ 599,90
 > - **Giannini GN-15 Nylon Cedr Natural** — R$ 689,00
+>
 > Preços já consideram promoções vigentes. No PIX há 5% de desconto em itens fora de promoção.
 >
 > Posso ajudar em mais alguma coisa?
@@ -79,6 +80,7 @@
 > **Giannini GF-3D Dreadnought Sunburst** (Violões)
 > - ⚠️ Temporariamente sem estoque
 > - Preço: **R$ 799,90**
+>
 > Opções parecidas disponíveis agora:
 > - **Shelby SGD-195E Elétrico Aço Sunburst** — R$ 799,00
 > - **Yamaha C70 Nylon Natural** — R$ 849,00

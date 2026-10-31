@@ -32,6 +32,7 @@
 > - Total: R$ 349,90 (cartão de débito)
 > - Código de rastreamento: BRJL5544332BR (consulte no site dos Correios ou da Jadlog)
 > - Previsão de entrega registrada: 2026-02-28
+>
 > Essas informações vêm do último registro do nosso sistema; eu não tenho acesso ao rastreamento em tempo real da transportadora.
 >
 > Posso ajudar em mais alguma coisa?
@@ -65,6 +66,7 @@
 > - Itens: 1x Giannini GF-3D Dreadnought Sunburst
 > - Total: R$ 799,90 (boleto bancário)
 > - Código de rastreamento: BRQM7890123BR (consulte no site dos Correios ou da Jadlog)
+>
 > Essas informações vêm do último registro do nosso sistema; eu não tenho acesso ao rastreamento em tempo real da transportadora.
 >
 > Se a compra foi **online**, vale o direito de arrependimento: você tem até **7 dias corridos após o recebimento** para pedir a devolução, sem precisar justificar. O produto deve estar na embalagem original, sem sinais de uso e com todos os acessórios e manuais. O frete de devolução fica por conta da loja e o reembolso é feito na mesma forma de pagamento em até 10 dias úteis.

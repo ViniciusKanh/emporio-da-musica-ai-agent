@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -19,7 +20,8 @@ from emporio_ai.agent import EmporioAgent  # noqa: E402
 from emporio_ai.config import DEFAULT_DATA_DIR, SAMPLE_DATA_DIR, _has_dataset  # noqa: E402
 
 ORIGINAL_POLICY = DEFAULT_DATA_DIR / "políticas_da_loja.pdf"
-HAS_ORIGINAL = _has_dataset(DEFAULT_DATA_DIR) and ORIGINAL_POLICY.is_file()
+HAS_ORIGINAL = (_has_dataset(DEFAULT_DATA_DIR) and ORIGINAL_POLICY.is_file()
+                and os.getenv("EMPORIO_SKIP_ORIGINAL") != "1")  # set to 1 to simulate a public clone
 
 
 @pytest.fixture()

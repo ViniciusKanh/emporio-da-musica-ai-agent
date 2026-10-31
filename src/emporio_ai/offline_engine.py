@@ -263,12 +263,12 @@ class OfflineEngine:
             if view["availability"] != "available":
                 alts = view.get("alternatives") or []
                 if alts:
-                    parts.append(_t(lang, "Opções parecidas disponíveis agora:", "Similar options in stock now:"))
-                    parts.append("\n".join(self._short_line(a, lang) for a in alts))
+                    parts.append(_t(lang, "Opções parecidas disponíveis agora:", "Similar options in stock now:") + "\n"
+                                 + "\n".join(self._short_line(a, lang) for a in alts))
                 elif view["availability"] != "coming_soon":
                     parts.append(_t(lang, "No momento não encontrei alternativas disponíveis na mesma categoria.",
                                     "I couldn't find in-stock alternatives in the same category right now."))
-            return "\n".join(parts), result["sources"], False
+            return "\n\n".join(parts), result["sources"], False
         views = [self.tools.catalog.product_view(pid, lang) for pid in route.product_ids[:8]]
         self.tools.call("get_product_details", {"product": route.text})
         header = _t(lang, "Não encontrei exatamente esse modelo, mas temos estes da marca:" if route.product_by_brand
@@ -344,7 +344,8 @@ class OfflineEngine:
         body.append(_t(lang, "Preços já consideram promoções vigentes. No PIX há 5% de desconto em itens fora de promoção.",
                        "Prices already include active promotions. PIX gives 5% off items that are not on promotion.")
                     if self.rules.pix_discount_percent == 5 else "")
-        return "\n".join(b for b in body if b), srcs, False
+        head, notes = "\n".join(body[:2]), [b for b in body[2:] if b]
+        return head + ("\n\n" + " ".join(notes) if notes else ""), srcs, False
 
     @staticmethod
     def _budget_label(route: Route, lang: str) -> str:
@@ -862,11 +863,11 @@ class OfflineEngine:
                             f"- Recorded delivery estimate: {order['estimated_delivery']}"))
         if order["notes"]:
             lines.append(_t(lang, f"- Observação: {order['notes']}", f"- Note: {order['notes']}"))
-        lines.append(_t(lang, "Essas informações vêm do último registro do nosso sistema; eu não tenho acesso ao rastreamento "
-                              "em tempo real da transportadora.",
+        disclaimer = _t(lang, "Essas informações vêm do último registro do nosso sistema; eu não tenho acesso ao "
+                              "rastreamento em tempo real da transportadora.",
                         "This comes from the latest record in our system; I don't have access to the carrier's real-time "
-                        "tracking."))
-        return "\n".join(lines), res["sources"], False
+                        "tracking.")
+        return "\n".join(lines) + "\n\n" + disclaimer, res["sources"], False
 
     # ========================================================= fallbacks
     def _greeting(self, lang: str) -> str:
