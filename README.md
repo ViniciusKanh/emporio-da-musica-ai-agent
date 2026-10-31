@@ -153,6 +153,19 @@ Takamine GD20?"* → *"e no pix?"*; *"Quais ukuleles?"* → *"e até 300?"*; *"O
 **Compound questions.** A message such as *"Quanto custa o Taylor 110e e qual o horário de sábado?"* is split into
 all its intents, and each one gets its own part of the answer.
 
+### What makes the conversation feel smart (and still grounded)
+
+| Capability | Example | How it stays reliable |
+|---|---|---|
+| Typo tolerance | *"quanto custa o takamini gd 20?"* → understands **Takamine GD20** and says so | Only brand, model and category words can be corrected; words the agent relies on (e.g. *abaixo*) are protected |
+| Side-by-side comparison | *"Compare o Yamaha C40 e o Tagima Memphis"* → table with price, PIX, installments, stock, top wood, strings, pickup | Every cell comes from the CSV; no "which is better" opinion, only facts and the cheapest option in stock |
+| Grounded recommendations | *"Qual violão você recomenda para iniciante até 800?"* → 3 options, each with a "why" | The "why" is quoted from the product's own catalog description; budget, stock and status are respected |
+| Usage profiles | beginner, gift, playing live, professional, stepping up | Live use favours instruments with a pickup; beginner/gift favour descriptions that mention students and lower prices |
+| Technical specs | top/back wood, strings, scale, pickup, keys | Read from the `specs` column of `products.csv` |
+| "Are you open now?" | *"Vocês estão abertos agora?"* → open/closed now and next opening time | Uses the hours from the manual and Campo Grande time (UTC-4); warns that holidays are not in the data |
+| Catalog consistency | Korg synth whose description talks about a Roland | Flagged to the customer and in the data report instead of hidden |
+| Several products at once | *"quanto custa o C40 e o GD20?"* → one card per product | Each card comes from its own tool call |
+
 ---
 
 ## 4. Technical decisions and why
@@ -212,8 +225,14 @@ after the model are enforced in code (§9).
 
 ### Interface and conversation history
 
-* **Gradio** web chat with example questions, a "new conversation" button, friendly error messages and a side
-  panel showing the mode, intents, tools and sources of each answer (useful for evaluation).
+* **Gradio** web interface with three tabs:
+  * **Atendimento** — the chat, one-click quick actions, a "store open/closed now" badge and an **evidence panel**
+    that shows, for every answer, the mode, the detected intents, the tools called and the sources (useful for an
+    evaluator to audit each answer);
+  * **Catálogo** — a filterable product table (category, maximum price, availability, search) and the active
+    promotions, computed with the same rules the agent uses;
+  * **Como funciona** — the architecture diagram, the data-quality findings and the contradictions found in the
+    manual, loaded live from the data.
 * **CLI** (`run_cli.py --trace`) and a **Colab notebook** for quick reproduction.
 * History is kept **in memory per session**: enough for follow-up questions, without persisting personal data.
 
@@ -240,6 +259,9 @@ range, references between tables and order totals. **Findings in the original da
 * 2 products are not sellable but still show stock (a *discontinued* bass with 13 units, a *coming soon* ukulele)
   → never offered as available.
 * Orders 3 and 20 have totals different from current prices → shown as recorded.
+* 6 products have a description that names a different brand from the product name (e.g. a Korg synthesizer
+  described as a Roland) → the agent warns the customer to confirm the model and never uses that description to
+  justify a recommendation.
 
 **Contradictions found in the policy manual** and how the agent handles them:
 
@@ -306,10 +328,10 @@ python scripts/run_evaluation.py    # writes docs/EVALUATION.md with the observe
 
 | Configuration | Passed | Failed | Skipped |
 |---|---:|---:|---:|
-| Fresh clone (synthetic data only) | 83 | 0 | 16 |
-| With the original challenge files in `data/` | 99 | 0 | 0 |
+| Fresh clone (synthetic data only) | 97 | 0 | 18 |
+| With the original challenge files in `data/` | 115 | 0 | 0 |
 
-The 16 skipped tests are the ones that need the original files. Full report: [`docs/EVALUATION.md`](docs/EVALUATION.md).
+The 18 skipped tests are the ones that need the original files. Full report: [`docs/EVALUATION.md`](docs/EVALUATION.md).
 
 **What the tests cover.** Each problem found in the previous version of this project has its own regression tests:
 
@@ -325,7 +347,8 @@ The 16 skipped tests are the ones that need the original files. Full report: [`d
 | Information invented | "Not found" answers, honest empty categories, no freight quotes outside the metro area, no live-tracking claims, answer check for Gemini |
 
 Other test groups cover security (injection, data extraction, unauthorized actions), conversation memory, policy
-retrieval and citations, data validation and business rules, and the Gemini tool loop.
+retrieval and citations, data validation and business rules, the Gemini tool loop and the conversation features of
+§3 (typos, comparison, recommendations, opening status, catalog inconsistencies).
 
 **What was validated and what was not**
 
@@ -335,9 +358,11 @@ retrieval and citations, data validation and business rules, and the Gemini tool
 | Gemini tool loop: SDK types, tool execution, e-mail masking, answer check, fallback | Validated with a scripted fake client |
 | Answers of the real Gemini model | **Not validated** — no API key in the development environment |
 | Colab notebook | Executed end-to-end with `jupyter nbconvert` on Linux, not inside Colab itself |
-| Web interface | Launched and used locally — the screenshot below is a real capture |
+| Web interface | Launched and used locally — the screenshots below are real captures |
 
-![Gradio interface](docs/assets/gradio_ui_catalog.png)
+![Chat with evidence panel](docs/assets/ui_chat.png)
+
+![Catalog explorer](docs/assets/ui_catalog.png)
 
 ---
 
@@ -369,6 +394,9 @@ The challenge asks to document reasonable assumptions where information is missi
 6. **"Acima de R$ 500"** (free shipping) means strictly above R$ 500.
 7. **Only "Campo Grande"** is treated as the metro area for shipping; other cities are quoted at checkout.
 8. **Ownership check** for orders: the e-mail registered on the order.
+9. **Store time zone** is UTC-4 (Campo Grande/MS has no daylight saving time); holidays are unknown.
+10. **Recommendations** are based only on the catalog description, price and stock — not on outside knowledge
+    about brands.
 
 ---
 
@@ -385,6 +413,8 @@ The challenge asks to document reasonable assumptions where information is missi
 * No promotion dates, no receipt dates, no live stock or carrier tracking (CSV snapshot only).
 * Freight to other cities cannot be quoted.
 * Keyword retrieval may miss synonyms that are not in its list.
+* Recommendations are rule-based (keywords in the descriptions + price position); they are explainable but do not
+  learn from sales or reviews.
 * Sessions live in memory (lost on restart, single server), and the web UI has no rate limiting.
 
 **With more time**
@@ -426,7 +456,7 @@ src/emporio_ai/                 agent, tools, data, rules, retrieval, Gemini int
 tests/                          automated tests (pytest)
 data/sample/                    synthetic sample data (public)
 examples/                       5 example conversations
-docs/                           architecture details, evaluation report, diagram and screenshot
+docs/                           architecture details, evaluation report, diagram and screenshots
 notebooks/                      Google Colab notebook
 scripts/                        examples, evaluation report and PDF generation
 submission/                     PDF generated from this README and docs/

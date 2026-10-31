@@ -18,6 +18,7 @@ Complements sections 2–5 of the [README](../README.md). Everything below descr
 | `router.py` | `IntentRouter.route` → `Route` | Multi-label intents, products, categories, price range, sub-types, order id, e-mail, language, follow-up markers. |
 | `offline_engine.py` | `OfflineEngine.respond` | One builder per intent; context resolution; curated wording only when the manual contains the facts. |
 | `llm.py` | `GeminiAgent.respond`, `grounding_issues`, `SYSTEM_PROMPT`, `TOOL_DECLARATIONS` | Manual function-calling loop with the official SDK. |
+| `store_hours.py` | `open_status`, `describe` | "Open now?" from the manual's hours in Campo Grande time (UTC-4). |
 | `agent.py` | `EmporioAgent.ask` → `AgentResponse` | Sessions, mode selection, fallbacks, warnings. |
 
 ## Product matching
@@ -29,11 +30,20 @@ digits weigh more than words, the brand adds a small bonus and descriptive words
 `GD 20`, `gd-20` and `GD20` are equivalent. A brand-only mention returns that brand's products as a non-exact match
 (`by_brand = True`); combined with a category (`violão Yamaha até 1500`) it becomes a filtered search.
 
+## Typo tolerance
+
+`IntentRouter.spell` compares each unknown word with a vocabulary of brand names, alphabetic model words and
+category names (`difflib`, similarity ≥ 0.8). Words used by the router's own rules and common Portuguese/English
+words are never corrected (so *abaixo* is not turned into *baixo*), and e-mail messages are left untouched. Each
+correction is shown to the customer ("Entendi **Takamine**").
+
 ## Offline engine: intent → section
 
 | Intent | Section builder | Tools called |
 |---|---|---|
-| `product_info` | product card or disambiguation list | `get_product_details` |
+| `compare` | side-by-side table of 2–4 products + factual notes | `get_product_details` (one per product) |
+| `recommend` | top 3 for a usage profile, each justified by its catalog description | `search_products` |
+| `product_info` | product card(s) with specs, or disambiguation list | `get_product_details` |
 | `product_search` | filtered list + hidden-unavailable note | `search_products` |
 | `promotions` | product promotion status / campaign status / active list | `list_promotions` |
 | `payment` | product payment options / amount simulation / policy summary | `calculate_payment_options`, `search_store_policies` |

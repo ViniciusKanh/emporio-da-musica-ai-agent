@@ -92,6 +92,8 @@
 > - Sábado: 09:00 às 13:00
 > - Domingo e Feriados: Fechado
 >
+> Agora (sábado, 19:17 em Campo Grande) a loja está **fechada** — abre segunda às 09:00. Feriados não constam no sistema.
+>
 > O WhatsApp segue o mesmo horário. Em datas especiais (Black Friday, Aniversário da Loja, Natal) o horário pode ser estendido.
 >
 > Posso ajudar em mais alguma coisa?

@@ -1,6 +1,6 @@
 # Prices, promotions and non-cumulative discounts
 
-> **Scenario.** Exact model lookup, PIX discount, an active promotion that must not be stacked with PIX, a question about an expired campaign that must not be honoured, and the list of active promotions.
+> **Scenario.** Exact model lookup, PIX discount, an active promotion that must not be stacked with PIX, a question about an expired campaign that must not be honoured, the list of active promotions, a misspelled model name and a product whose catalog description names a different brand (flagged instead of hidden).
 >
 > Generated on 2026-10-31 by `scripts/generate_examples.py` · agent mode: **offline** (no Gemini key was configured) · data: original challenge snapshot. Assistant messages are the verbatim output of `EmporioAgent.ask`. English notes in *italics* are author translations, not agent output. Customer e-mails are redacted in the transcript.
 
@@ -17,6 +17,7 @@
 > - Preço: **R$ 2.199,00**
 > - No PIX: R$ 2.089,05 (5% de desconto)
 > - No cartão: até 12x de R$ 183,25 sem juros
+> - Especificações: tampo Cedro Sólido, fundo/laterais Sapele, braço Mogno, cordas de aço, escala 650mm, sem captação, cor Natural
 >
 > Posso ajudar em mais alguma coisa?
 
@@ -52,6 +53,7 @@
 > - De ~~R$ 5.999,00~~ por **R$ 5.519,08** (8% off — Desconto Exclusivo)
 > - O desconto do PIX não se aplica sobre preço promocional (promoções não são cumulativas).
 > - No cartão: até 12x de R$ 459,92 sem juros
+> - Especificações: tampo Sitka Spruce Sólido, fundo/laterais Walnut, braço Tropical Mahogany, cordas de aço, escala 648mm, com captação (eletroacústico), cor Natural
 >
 > Posso ajudar em mais alguma coisa?
 
@@ -70,6 +72,7 @@
 > - Preço: **R$ 11.499,00**
 > - No PIX: R$ 10.924,05 (5% de desconto)
 > - No cartão: até 12x de R$ 958,25 sem juros
+> - Especificações: tampo Sitka Spruce Sólido, fundo/laterais East Indian Rosewood, braço Select Hardwood, cordas de aço, escala 645mm, sem captação, cor Natural
 >
 > Não há registro de promoção **Black Friday** para o **Martin D-28 Dreadnought Natural**. As promoções registradas para o **Martin D-28 Dreadnought Natural** (Promoção de Páscoa (15%), Promoção de Páscoa (10%)) **não estão vigentes**. O preço atual é R$ 11.499,00 — não consigo garantir desconto que não esteja ativo.
 >
@@ -96,3 +99,44 @@
 > Posso ajudar em mais alguma coisa?
 
 <sub>mode: `offline` · intents: `promotions` · tools: `list_promotions` · sources: promotions.csv, products.csv, Manual de Políticas §6.2 (p. 6)</sub>
+
+### Turn 6
+
+**Customer:** quanto custa o takamini gd 20?
+
+*EN: How much is the 'takamini gd 20'? (typo on purpose)*
+
+**Empório AI:**
+
+> _Entendi **Takamine** ('takamini')._
+>
+> **Takamine GD20 Dreadnought Natural** (Violões)
+> - ✅ Disponível (5 em estoque)
+> - Preço: **R$ 2.199,00**
+> - No PIX: R$ 2.089,05 (5% de desconto)
+> - No cartão: até 12x de R$ 183,25 sem juros
+> - Especificações: tampo Cedro Sólido, fundo/laterais Sapele, braço Mogno, cordas de aço, escala 650mm, sem captação, cor Natural
+>
+> Posso ajudar em mais alguma coisa?
+
+<sub>mode: `offline` · intents: `price, product_info` · tools: `get_product_details` · sources: products.csv, promotions.csv, categories.csv</sub>
+
+### Turn 7
+
+**Customer:** Quanto custa o Korg Synth 1?
+
+*EN: How much is the Korg Synth 1? (its catalog record is inconsistent)*
+
+**Empório AI:**
+
+> **Teclado Sintetizador Korg Synth 1 Pro** (Teclados e Pianos)
+> - ✅ Disponível (2 em estoque)
+> - Preço: **R$ 1.127,00**
+> - No PIX: R$ 1.070,65 (5% de desconto)
+> - No cartão: até 11x de R$ 102,45 sem juros
+> - Especificações: 61 teclas, polifonia 128, cor Black
+> - ⚠️ Atenção: no cadastro, a descrição deste item cita a marca Roland, diferente do nome do produto. Vale confirmar o modelo com a equipe antes de fechar a compra.
+>
+> Posso ajudar em mais alguma coisa?
+
+<sub>mode: `offline` · intents: `price, product_info` · tools: `get_product_details` · sources: products.csv, promotions.csv, categories.csv</sub>

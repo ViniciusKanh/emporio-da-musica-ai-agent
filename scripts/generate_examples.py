@@ -25,22 +25,28 @@ EMAIL_PLACEHOLDER = "[customer e-mail redacted]"
 # (file, title, scenario description, turns). A turn is (message, english_note). Messages may contain
 # {email:<customer_id>} which is replaced by that customer's e-mail when sent to the agent.
 CONVERSATIONS = [
-    ("01_catalog_budget_search.md", "Catalog search with budget, follow-up and out-of-stock handling",
+    ("01_catalog_budget_search.md", "Catalog search, recommendation and side-by-side comparison",
      "Category + price parsing, stock and status filtering, conversational follow-up (the second message reuses "
-     "the category of the first), sub-type filter (nylon) and an out-of-stock product with alternatives.",
+     "the category of the first), sub-type filter (nylon), an out-of-stock product with alternatives, a beginner "
+     "recommendation justified by the catalog descriptions and a side-by-side comparison.",
      [("Quais opções de violões disponíveis custando até R$1000?",
        "Which acoustic guitars are available for up to R$ 1,000?"),
       ("e até 600?", "And up to 600?"),
       ("Quero um violão de nylon até 700", "I want a nylon-string guitar up to 700."),
-      ("Tem o Giannini GF-3D?", "Do you have the Giannini GF-3D?")]),
+      ("Tem o Giannini GF-3D?", "Do you have the Giannini GF-3D?"),
+      ("Qual violão você recomenda para iniciante até 800?", "Which guitar do you recommend for a beginner, up to 800?"),
+      ("Compare o Yamaha C40 e o Tagima Memphis", "Compare the Yamaha C40 and the Tagima Memphis.")]),
     ("02_price_promotions_payment.md", "Prices, promotions and non-cumulative discounts",
      "Exact model lookup, PIX discount, an active promotion that must not be stacked with PIX, a question about an "
-     "expired campaign that must not be honoured, and the list of active promotions.",
+     "expired campaign that must not be honoured, the list of active promotions, a misspelled model name and a "
+     "product whose catalog description names a different brand (flagged instead of hidden).",
      [("Quanto custa o Takamine GD20?", "How much is the Takamine GD20?"),
       ("e no pix?", "And paying with PIX?"),
       ("Quanto custa o Taylor 110e?", "How much is the Taylor 110e?"),
       ("A promoção de Black Friday do Martin D-28 ainda vale?", "Is the Black Friday deal on the Martin D-28 still valid?"),
-      ("Quais promoções estão ativas?", "Which promotions are active?")]),
+      ("Quais promoções estão ativas?", "Which promotions are active?"),
+      ("quanto custa o takamini gd 20?", "How much is the 'takamini gd 20'? (typo on purpose)"),
+      ("Quanto custa o Korg Synth 1?", "How much is the Korg Synth 1? (its catalog record is inconsistent)")]),
     ("03_returns_warranty_policies.md", "Returns, exchanges and warranty (policy RAG with citations)",
      "Retrieval of the policy manual with section/page citations, a non-eligible item, and an ambiguous warranty case "
      "(45 days: store exchange window expired, legal warranty may still apply) that is escalated instead of denied.",

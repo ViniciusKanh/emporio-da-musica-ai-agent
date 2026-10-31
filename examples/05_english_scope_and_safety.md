@@ -15,11 +15,14 @@
 > - Was ~~R$ 5.999,00~~, now **R$ 5.519,08** (8% off — Desconto Exclusivo)
 > - The PIX discount does not apply to promotional prices (discounts are not cumulative).
 > - Credit card: up to 12 interest-free installments of R$ 459,92
+> - Specs: top: Sitka Spruce Sólido, back/sides: Walnut, neck: Tropical Mahogany, steel strings, scale 648mm, with pickup (acoustic-electric), color: Natural
 >
 > Our opening hours:
 > - Monday to Friday: 09:00 to 18:00
 > - Saturday: 09:00 to 13:00
 > - Sundays and holidays: Closed
+>
+> Right now (Saturday 19:17 in Campo Grande) the store is **closed**. It opens again Monday at 09:00. Public holidays are not in our system.
 >
 > WhatsApp support follows the same hours. On special dates (Black Friday, store anniversary, Christmas) hours may be extended.
 >
