@@ -31,7 +31,7 @@ INTENT_PATTERNS: dict[str, list[str]] = {
     "shipping": [r"\bfrete", r"\bentrega(m|s)?\b", r"\bentregar\b", r"\benvi(o|am)\b", r"\bshipping\b", r"\bdeliver",
                  r"\bship\b", r"\bcorreios\b", r"\bsedex\b", r"\bjadlog\b", r"\bmotoboy\b", r"\brastre",
                  r"\btracking\b"],
-    "hours": [r"\bhorario", r"\babre(m)?\b", r"\bfecha(m)?\b", r"\bfunciona(m|mento)?\b(?! (o|a) (violao|produto))",
+    "hours": [r"\bhorario", r"\baberto(s)?\b", r"\baberta\b", r"\bopen now\b", r"\bfuncionando agora\b", r"\babre(m)?\b", r"\bfecha(m)?\b", r"\bfunciona(m|mento)?\b(?! (o|a) (violao|produto))",
               r"\bsabado", r"\bdomingo", r"\bferiado", r"\bopen\b", r"\bopening\b", r"\bhours\b", r"\bclose[sd]?\b",
               r"\bsaturday", r"\bsunday", r"\bholiday"],
     "contact": [r"\bendereco", r"\bonde fica", r"\blocaliza", r"\btelefone", r"\bwhats(app|zap)?\b",
@@ -90,6 +90,14 @@ SUBTYPE_KEYWORDS = {
 SPEC_KEYWORD = {"nylon": "nylon", "aco": "steel", "eletrico": '"electronics":"yes"', "7 cordas": "7 cordas",
                 "soprano": "soprano", "concert": "concert", "tenor": "tenor", "baritono": "baritono"}
 
+COMPARE_WORDS = (r"\b(compar\w*|diferenca|diferencas|differen\w*|versus|vs\.?|qual (e|eh) (o )?melhor|qual o melhor|"
+                 r"qual vale mais|which is better|better)\b")
+RECOMMEND_WORDS = (r"\b(recomend\w*|indica\w*|sugere|sugest\w*|sugira|aconselh\w*|(bom|boa|ideal|indicado) (para|pra)|"
+                   r"iniciante\w*|comecando|comecar a tocar|aprender a tocar|primeiro (violao|instrumento|ukulele)|"
+                   r"presente|profissional|avancad\w*|para tocar|ao vivo|no palco|para palco|para shows?|"
+                   r"to play live|for gigs?|on stage|intermediari\w*|beginner\w*|recommend\w*|suggest\w*|"
+                   r"best for|good for|gift|professional|advanced|intermediate)\b")
+
 _NUM = r"(?:r\$\s*)?(\d{1,3}(?:[.\s]\d{3})+(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?)\s*(mil|k)?"
 
 
@@ -112,6 +120,8 @@ class Route:
     accessory: bool = False
     out_of_scope_hint: bool = False
     is_followup: bool = False
+    multi_ids: list[int] = field(default_factory=list)  # several products named in one message
+    corrections: list[tuple[str, str]] = field(default_factory=list)  # (typed, understood)
 
     def has(self, *intents: str) -> bool:
         return any(i in self.intents for i in intents)
@@ -144,13 +154,66 @@ def extract_order_id(norm: str) -> int | None:
     return int(match.group(1)) if match else None
 
 
+def _known_words() -> set[str]:
+    """Every word the router itself relies on: these are never 'corrected' into product names."""
+    import sys
+
+    module = sys.modules[__name__]
+    texts: list[str] = []
+    for value in vars(module).values():
+        if isinstance(value, str):
+            texts.append(value)
+        elif isinstance(value, (list, tuple)):
+            texts += [v for v in value if isinstance(v, str)]
+        elif isinstance(value, dict):
+            for v in value.values():
+                texts += [x for x in (v if isinstance(v, (list, tuple)) else [v]) if isinstance(x, str)]
+    from .text_utils import _EN_MARKERS, _PT_MARKERS
+
+    words = {w for t in texts for w in re.findall(r"[a-z]{4,}", t)} | _EN_MARKERS | _PT_MARKERS
+    words |= {"abaixo", "acima", "entre", "quanto", "quantos", "quantas", "quais", "todos", "todas", "voces", "vendem",
+              "gostaria", "queria", "preciso", "comprar", "trocar", "devolver", "receber", "recebi", "pagar", "parcela",
+              "parcelas", "estoque", "promocao", "loja", "frete", "pedido", "email", "obrigado", "tambem", "porque",
+              "melhor", "barato", "baratos", "caro", "caros", "modelo", "modelos", "marca", "marcas", "cor", "cores",
+              "natural", "preto", "madeira", "tampo", "corpo", "braco", "escala", "captacao", "cordas", "nylon"}
+    return words
+
+
 class IntentRouter:
     def __init__(self, catalog: CatalogService):
         self.catalog = catalog
+        self._vocabulary = sorted(catalog.spelling_vocabulary())
+        self._known = _known_words() | set(self._vocabulary)
+
+    def spell(self, text: str) -> tuple[str, list[tuple[str, str]]]:
+        """Correct likely typos of brands, models and categories ('takamini' -> 'takamine')."""
+        import difflib
+
+        corrections: list[tuple[str, str]] = []
+
+        def fix(match: re.Match) -> str:
+            word = match.group(0)
+            key = normalize(word)
+            if len(key) < 4 or not key.isalpha() or key in self._known:
+                return word
+            close = difflib.get_close_matches(key, self._vocabulary, n=1, cutoff=0.8)
+            if not close:
+                return word
+            corrections.append((word, close[0]))
+            return close[0]
+
+        corrected = re.sub(r"[A-Za-zÀ-ÿ]+", fix, text)
+        return corrected, corrections
 
     def route(self, text: str, default_lang: str = "pt") -> Route:
+        original = text
+        if not EMAIL_RE.search(text):  # never touch e-mail addresses
+            text, corrections = self.spell(text)
+        else:
+            corrections = []
         norm = normalize(text)
-        route = Route(text=text, norm=norm, lang=detect_language(EMAIL_RE.sub(" ", text), default=default_lang))
+        route = Route(text=text, norm=norm, lang=detect_language(EMAIL_RE.sub(" ", original), default=default_lang))
+        route.corrections = corrections
         intents: list[str] = []
         intent_text = EMAIL_RE.sub(" ", norm)
         for intent, patterns in INTENT_PATTERNS.items():
@@ -203,12 +266,24 @@ class IntentRouter:
             route.sort = "price_desc"
         route.is_followup = any(re.search(p, norm) for p in FOLLOWUP_REFERENCES)
 
+        many = self.catalog.match_many(search_text)
+        if len(many) >= 2:
+            route.multi_ids = many
+            route.product_ids, route.product_exact, route.product_by_brand = many, False, False
+            if re.search(COMPARE_WORDS, norm):
+                intents.append("compare")
+        recommend = bool(re.search(RECOMMEND_WORDS, norm)) and not route.product_exact
+
         has_budget = route.max_price is not None or route.min_price is not None
         search_words = re.search(r"\b(instrumentos?|produtos?|instruments?|products?|opcoes|options|modelos|models|"
                                  r"quero|procuro|procurando|comprar|recomenda\w*|sugere|sugest\w*|indica\w*|tem|tem algum|"
                                  r"looking for|recommend|suggest|buy|do you have|any|disponive\w*|available)\b", norm)
         policy_context = bool(set(intents) & {"returns", "warranty", "shipping", "payment", "order_status", "promotions"})
-        if route.product_ids and not (route.product_by_brand and route.category_ids):
+        if recommend and not route.multi_ids and not (set(intents) & {"returns", "warranty", "order_status"}):
+            intents.append("recommend")
+        elif "compare" in intents:
+            pass
+        elif route.product_ids and not (route.product_by_brand and route.category_ids):
             intents.append("product_info")
         elif route.category_ids or has_budget or (search_words and not policy_context and
                                                   re.search(r"\b(instrumentos?|produtos?|instruments?|products?|"

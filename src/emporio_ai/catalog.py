@@ -150,6 +150,47 @@ class CatalogService:
         brand_ids = tuple(int(pid) for pid, b in self.products["brand"].items() if compact(b) in query)
         return ProductMatch(brand_ids, exact=len(brand_ids) == 1, by_brand=bool(brand_ids))
 
+    def match_many(self, text: str) -> list[int]:
+        """Products mentioned in a list/comparison ('C40 e o Memphis', 'GD20 vs FG800'), in order."""
+        segments = re.split(r"\s*(?:,|;|\+|\be\b|\bou\b|\bvs\.?|\bversus\b|\bx\b|\band\b|\bor\b|"
+                            r"\bcom o\b|\bcom a\b|\bcontra\b)\s*", normalize(text))
+        found: list[int] = []
+        for segment in segments:
+            if not segment.strip():
+                continue
+            match = self.match_products(segment)
+            if match.exact and match.product_ids[0] not in found:
+                found.append(match.product_ids[0])
+        return found
+
+    OTHER_BRANDS = ("fender", "ibanez", "pearl", "tama", "roland", "yamaha", "korg", "nord", "gibson", "music man",
+                    "prs", "taylor", "martin", "takamine", "tagima", "giannini", "kala", "ohana", "crafter", "casio")
+
+    def description_conflict(self, pid: int) -> str | None:
+        """Brand named in the description when it differs from the brand in the product name (data-entry issue)."""
+        row = self.products.loc[pid]
+        brand = normalize(row["brand"])
+        desc = normalize(row["description"])
+        mentioned = [b for b in self.OTHER_BRANDS if re.search(rf"\b{b}\b", desc)]
+        if mentioned and not any(b.startswith(brand) or brand.startswith(b.split()[0]) for b in mentioned):
+            return mentioned[0].title()
+        return None
+
+    def data_findings(self) -> list[str]:
+        conflicts = [f"{self.products.at[p, 'name']} (description mentions {self.description_conflict(p)})"
+                     for p in self.products.index if self.description_conflict(p)]
+        return ["products: name and description refer to different brands for " + "; ".join(conflicts)] \
+            if conflicts else []
+
+    def spelling_vocabulary(self) -> set[str]:
+        """Brand names and distinctive alphabetic model words, used for typo correction."""
+        words = {normalize(b) for b in self.products["brand"]}
+        for tokens in self._index.values():
+            words |= {t for t in tokens - GENERIC_TOKENS if t.isalpha() and len(t) >= 4}
+        for kws in CATEGORY_KEYWORDS.values():
+            words |= {w for w in kws if " " not in w and len(w) >= 5}
+        return words
+
     @staticmethod
     def detect_categories(text: str) -> list[int]:
         norm = " " + normalize(text) + " "
@@ -191,6 +232,41 @@ class CatalogService:
             view["pix_price"] = pix_price(row["price_brl"], promo, self.rules)
             view["card"] = installment_plan(row["final_price"], self.rules)
         return view
+
+    @staticmethod
+    def spec_summary(specs: dict[str, str], lang: str = "pt") -> str:
+        """Human-readable summary of the JSON specs column (only fields present in the data)."""
+        pt = lang != "en"
+        parts = []
+        if specs.get("top"):
+            parts.append(("tampo " if pt else "top: ") + specs["top"])
+        if specs.get("back_sides"):
+            parts.append(("fundo/laterais " if pt else "back/sides: ") + specs["back_sides"])
+        if specs.get("body"):
+            parts.append(("corpo " if pt else "body: ") + specs["body"])
+        if specs.get("neck"):
+            parts.append(("braço " if pt else "neck: ") + specs["neck"])
+        strings = specs.get("strings")
+        if strings in {"nylon", "steel"}:
+            parts.append(("cordas de " + ("nylon" if strings == "nylon" else "aço")) if pt
+                         else (strings + " strings"))
+        elif strings and strings.isdigit():
+            parts.append(f"{strings} cordas" if pt else f"{strings} strings")
+        if specs.get("scale"):
+            parts.append(("escala " if pt else "scale ") + specs["scale"])
+        if specs.get("electronics") in {"yes", "no"}:
+            yes = specs["electronics"] == "yes"
+            parts.append(("com captação (eletroacústico)" if yes else "sem captação") if pt
+                         else ("with pickup (acoustic-electric)" if yes else "no pickup"))
+        if specs.get("keys"):
+            parts.append(f"{specs['keys']} teclas" if pt else f"{specs['keys']} keys")
+        if specs.get("pieces"):
+            parts.append(f"{specs['pieces']} peças" if pt else f"{specs['pieces']} pieces")
+        if specs.get("polyphony"):
+            parts.append(("polifonia " if pt else "polyphony ") + specs["polyphony"])
+        if specs.get("color"):
+            parts.append(("cor " if pt else "color: ") + specs["color"])
+        return ", ".join(parts)
 
     def search(self, category_ids: list[int] | None = None, max_price: float | None = None,
                min_price: float | None = None, keywords: list[str] | None = None,

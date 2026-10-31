@@ -257,8 +257,14 @@ class ToolBox:
 
     def get_store_info(self) -> dict:
         """Address, phone/WhatsApp, e-mail and opening hours extracted from the policy manual."""
+        from .store_hours import describe, open_status
+
         info = self.policies.store_info
+        status = open_status(info.hours)
         return {"address": info.address, "phones": [{"number": n, "type": t} for n, t in info.phones],
+                "open_now": None if status is None else {"is_open": status.is_open, "summary_pt": describe(status, "pt"),
+                                                         "summary_en": describe(status, "en"),
+                                                         "note": "public holidays are not in the data"},
                 "emails": info.emails, "opening_hours": [{"days": d, "hours": h} for d, h in info.hours],
                 "conflicts_in_manual": info.conflicts,
                 "sources": [c.citation() for c in (self.policies.find_section("Dados da Empresa"),

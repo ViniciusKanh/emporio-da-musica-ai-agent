@@ -48,6 +48,7 @@ class EmporioAgent:
         self.rules = BusinessRules()
         self.store = DataStore(self.settings.data_dir)
         self.catalog = CatalogService(self.store, self.rules)
+        self.store.report.issues.extend(self.catalog.data_findings())
         self.orders = OrderService(self.store)
         self.policies = PolicyKnowledgeBase(self.settings.policy_path, self.rules)
         self.router = IntentRouter(self.catalog)

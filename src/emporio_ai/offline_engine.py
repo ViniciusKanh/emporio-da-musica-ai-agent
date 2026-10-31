@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Callable
 
 from .business_rules import BusinessRules
 from .conversation import ConversationState
@@ -24,6 +26,23 @@ CATEGORY_EN = {"Guitarras": "electric guitars", "Baixos": "basses", "Baterias e 
                "Instrumentos de Sopro (Madeiras)": "woodwind instruments",
                "Instrumentos de Sopro (Metais)": "brass instruments", "Cordas Orquestrais": "orchestral strings",
                "Ukuleles": "ukuleles"}
+PROFILES = {
+    "beginner": (r"(iniciante|comecando|comecar|aprender|primeiro|beginner|first|learn)",
+                 r"(inician|estudante|comec|estudo|aprend|acessivel)"),
+    "gift": (r"(presente|gift|filho|filha|crianca|sobrinh)", r"(inician|estudante|comec|leve|confort|viajant)"),
+    "stage": (r"(palco|ao vivo|show|apresenta|tocar na igreja|banda|live|stage|gig)",
+              r"(palco|ao vivo|apresenta|amplific|performance|show)"),
+    "professional": (r"(profissional|avancad|exigente|professional|advanced|melhor qualidade|top)",
+                     r"(profission|premium|alta qualidade|lendari|referencia|exigente|impecavel|excepcional|solido)"),
+    "intermediate": (r"(intermediari|intermediate|evoluir|upgrade)", r"(intermedi|avancad|custo-benef|solido)"),
+}
+PROFILE_LABEL = {
+    "pt": {"beginner": "para quem está começando", "gift": "para presentear", "stage": "para tocar ao vivo",
+           "professional": "para uso profissional", "intermediate": "para quem quer evoluir", None: "com bom equilíbrio"},
+    "en": {"beginner": "for beginners", "gift": "as a gift", "stage": "for playing live",
+           "professional": "for professional use", "intermediate": "for players who want to step up",
+           None: "with a good balance"},
+}
 KNOWN_CITIES = ("Campo Grande", "Dourados", "Três Lagoas", "Corumbá", "Ponta Porã", "São Paulo",
                 "Rio de Janeiro", "Cuiabá", "Brasília", "Curitiba", "Goiânia")
 
@@ -45,6 +64,9 @@ class OfflineEngine:
         self.tools, self.router = tools, router
         self.rules = rules or tools.rules
         self.kb = tools.policies
+        from .store_hours import STORE_TZ
+
+        self.clock: Callable[[], datetime] = lambda: datetime.now(STORE_TZ)
 
     # ================================================================ entry
     def respond(self, message: str, state: ConversationState) -> EngineResult:
@@ -91,7 +113,8 @@ class OfflineEngine:
 
         handled = False
         builders = [
-            ("order_status", self._order_section), ("product_info", self._product_section),
+            ("order_status", self._order_section), ("compare", self._compare_section),
+            ("recommend", self._recommend_section), ("product_info", self._product_section),
             ("product_search", self._search_section), ("promotions", self._promotion_section),
             ("payment", self._payment_section), ("returns", self._returns_section),
             ("warranty", self._warranty_section), ("shipping", self._shipping_section),
@@ -141,6 +164,9 @@ class OfflineEngine:
                     intents.append("out_of_scope")
         elif route.has("greeting") and handled:
             sections.insert(0, _t(lang, "Oi! Tudo bem? 🎸", "Hi there! 🎸"))
+        if route.corrections and handled:
+            fixed = ", ".join(f"**{good.title()}** ({typed!r})" for typed, good in route.corrections)
+            sections.insert(0, _t(lang, f"_Entendi {fixed}._", f"_I understood {fixed}._"))
 
         if handled or guard.flagged or guard.action_request:
             sections.append(_t(lang, "Posso ajudar em mais alguma coisa?", "Is there anything else I can help with?"))
@@ -183,7 +209,9 @@ class OfflineEngine:
         route.intents = list(dict.fromkeys(route.intents))
 
     def _remember(self, route: Route, state: ConversationState) -> None:
-        if route.product_ids and "product_info" in route.intents:
+        if route.multi_ids:
+            state.last_product_ids = list(route.multi_ids[:6])
+        elif route.product_ids and "product_info" in route.intents:
             state.last_product_ids = list(route.product_ids[:6])
         if "product_search" in route.intents:
             state.last_search = {"category_ids": route.category_ids, "spec_keywords": route.spec_keywords}
@@ -238,6 +266,15 @@ class OfflineEngine:
         lines = [f"**{view['name']}** ({category})", status]
         if avail in {"available", "out_of_stock"}:
             lines += self._price_lines(view, lang)
+        specs = self.tools.catalog.spec_summary(view.get("specs") or {}, lang)
+        if specs:
+            lines.append(_t(lang, f"Especificações: {specs}", f"Specs: {specs}"))
+        other = self.tools.catalog.description_conflict(view["product_id"])
+        if other:
+            lines.append(_t(lang, f"⚠️ Atenção: no cadastro, a descrição deste item cita a marca {other}, diferente do nome "
+                                  "do produto. Vale confirmar o modelo com a equipe antes de fechar a compra.",
+                            f"⚠️ Note: the catalog description of this item mentions {other}, a different brand from the "
+                            "product name. Please confirm the exact model with our team before buying."))
         return "\n".join(f"- {line}" if i else line for i, line in enumerate(lines))
 
     def _short_line(self, view: dict, lang: str) -> str:
@@ -252,6 +289,14 @@ class OfflineEngine:
         lang = route.lang
         if not route.product_ids:
             return None
+        if route.multi_ids:
+            cards, srcs = [], []
+            for pid in route.multi_ids[:4]:
+                res = self.tools.call("get_product_details", {"product": str(pid)})
+                cards.append(self._product_card(self.tools.catalog.product_view(pid, lang), lang))
+                srcs = res.get("sources", srcs)
+            tip = _t(lang, "Quer que eu compare esses modelos lado a lado?", "Want me to compare them side by side?")
+            return "\n\n".join(cards) + "\n\n" + tip, srcs, False
         result = self.tools.call("get_product_details", {"product": str(route.product_ids[0])}) \
             if route.product_exact else None
         if route.product_exact and result and result.get("found"):
@@ -277,6 +322,149 @@ class OfflineEngine:
                     else "I found more than one product with that name. Which one do you mean?")
         return header + "\n" + "\n".join(self._short_line(v, lang) for v in views), \
             ["products.csv", "promotions.csv"], False
+
+    def _compare_section(self, route: Route, state: ConversationState):
+        lang = route.lang
+        ids = route.multi_ids[:4]
+        if len(ids) < 2:
+            return None
+        views = []
+        for pid in ids:
+            self.tools.call("get_product_details", {"product": str(pid)})
+            views.append(self.tools.catalog.product_view(pid, lang))
+        yes, no = _t(lang, "sim", "yes"), _t(lang, "não", "no")
+
+        def avail(v):
+            return _t(lang, f"✅ {v['stock_quantity']} em estoque", f"✅ {v['stock_quantity']} in stock") \
+                if v["availability"] == "available" else v["availability_label"]
+
+        def price(v):
+            return (f"**{brl(v['final_price'])}**" + (f" ({v['promotion']['discount_percent']:g}% off)"
+                                                      if v.get("promotion") else ""))
+
+        def pix(v):
+            if v["availability"] != "available":
+                return "—"
+            return brl(v["pix_price"]) if v.get("pix_price") is not None else _t(lang, "sem desconto extra", "no extra discount")
+
+        def card(v):
+            c = v.get("card")
+            return f"{c['installments']}x {brl(c['installment_value'])}" if c else "—"
+
+        def spec(v, key, mapping=None):
+            value = (v.get("specs") or {}).get(key, "")
+            return (mapping or {}).get(value, value) or "—"
+
+        rows = [
+            (_t(lang, "Categoria", "Category"), lambda v: CATEGORY_EN.get(v["category"], v["category"]) if lang == "en"
+             else v["category"]),
+            (_t(lang, "Preço", "Price"), price), ("PIX", pix), (_t(lang, "Cartão (sem juros)", "Card (interest-free)"), card),
+            (_t(lang, "Disponibilidade", "Availability"), avail),
+            (_t(lang, "Tampo", "Top"), lambda v: spec(v, "top")),
+            (_t(lang, "Fundo/laterais", "Back/sides"), lambda v: spec(v, "back_sides")),
+            (_t(lang, "Cordas", "Strings"), lambda v: spec(v, "strings", {"nylon": "nylon", "steel": _t(lang, "aço", "steel")})),
+            (_t(lang, "Captação", "Pickup"), lambda v: spec(v, "electronics", {"yes": yes, "no": no})),
+            (_t(lang, "Escala", "Scale"), lambda v: spec(v, "scale")),
+        ]
+        header = "| | " + " | ".join(f"**{v['name']}**" for v in views) + " |"
+        lines = [header, "|---|" + "---|" * len(views)]
+        for label, fn in rows:
+            cells = [str(fn(v)) for v in views]
+            if all(c == "—" for c in cells):
+                continue
+            lines.append(f"| {label} | " + " | ".join(cells) + " |")
+        available = [v for v in views if v["availability"] == "available"]
+        notes = []
+        if available:
+            cheapest = min(available, key=lambda v: v["final_price"])
+            notes.append(_t(lang, f"Mais em conta entre os disponíveis: **{cheapest['name']}** ({brl(cheapest['final_price'])}).",
+                            f"Most affordable in stock: **{cheapest['name']}** ({brl(cheapest['final_price'])})."))
+        electric = [v["name"] for v in views if (v.get("specs") or {}).get("electronics") == "yes"]
+        if electric and len(electric) < len(views):
+            notes.append(_t(lang, f"Com captação para ligar no amplificador: {', '.join(electric)}.",
+                            f"With a pickup for amplification: {', '.join(electric)}."))
+        unavailable = [v["name"] for v in views if v["availability"] != "available"]
+        if unavailable:
+            notes.append(_t(lang, f"Indisponível no momento: {', '.join(unavailable)}.",
+                            f"Not available right now: {', '.join(unavailable)}."))
+        notes.append(_t(lang, "A escolha depende do seu uso — se me contar o estilo que você toca e o orçamento, eu "
+                              "indico a opção mais adequada.",
+                        "The right pick depends on how you play — tell me your style and budget and I'll point you to the "
+                        "best fit."))
+        intro = _t(lang, "Comparando lado a lado (dados do nosso sistema):", "Side-by-side comparison (from our system):")
+        return intro + "\n\n" + "\n".join(lines) + "\n\n" + " ".join(notes), \
+            ["products.csv", "promotions.csv", "categories.csv"], False
+
+    def _recommend_section(self, route: Route, state: ConversationState):
+        lang = route.lang
+        categories = route.category_ids or list(state.last_search.get("category_ids", []))
+        if not categories:
+            return _t(lang, "Claro, te ajudo a escolher! Qual instrumento você procura — violão, guitarra, baixo, teclado, "
+                            "bateria ou ukulele? Se puder, me diga também o orçamento e para quem é (iniciante, presente, "
+                            "palco, uso profissional).",
+                      "Happy to help you choose! Which instrument are you looking for — acoustic guitar, electric guitar, "
+                      "bass, keyboard, drums or ukulele? Your budget and who it is for (beginner, gift, stage, "
+                      "professional) also help."), [], False
+        profile = next((name for name, (ask, _) in PROFILES.items() if re.search(ask, route.norm)), None)
+        keywords = " ".join(SPEC_KEYWORD[k] for k in route.spec_keywords if k in SPEC_KEYWORD) or None
+        candidates: list[dict] = []
+        for cid in categories:
+            res = self.tools.call("search_products", {"category": self.tools.catalog.category_name(cid),
+                                                      "max_price": route.max_price, "min_price": route.min_price,
+                                                      "keywords": keywords, "limit": 10})
+            candidates += res.get("products", [])
+        if not candidates:
+            return _t(lang, "Não encontrei opções disponíveis com esses critérios. Quer que eu amplie o orçamento ou "
+                            "mostre outra categoria?",
+                      "I couldn't find available options with those criteria. Shall I widen the budget or show another "
+                      "category?"), ["products.csv"], False
+        prices = sorted(v["final_price"] for v in candidates)
+
+        def percentile(v):
+            return prices.index(v["final_price"]) / max(1, len(prices) - 1)
+
+        def score(v):
+            desc = normalize(v["description"])
+            if self.tools.catalog.description_conflict(v["product_id"]):
+                desc = ""
+            electric = (v.get("specs") or {}).get("electronics") == "yes"
+            pct = percentile(v)
+            s = 0.0
+            if profile:
+                s += 3.0 * bool(re.search(PROFILES[profile][1], desc))
+            if profile in {"beginner", "gift"}:
+                s += 2.0 * (1 - pct)
+            elif profile == "professional":
+                s += 2.0 * pct
+            elif profile == "stage":
+                s += 2.5 * electric
+            else:  # intermediate or unspecified: favour the middle of the range and value-for-money mentions
+                s += 1.5 * (1 - abs(pct - 0.5) * 2) + 1.0 * bool(re.search(r"custo-benef", desc))
+            return s
+
+        ranked = sorted(candidates, key=lambda v: (-score(v), v["final_price"]))[:3]
+        state.last_product_ids = [v["product_id"] for v in ranked]
+        cat_names = [self.tools.catalog.category_name(c) for c in categories]
+        if lang == "en":
+            cat_names = [CATEGORY_EN.get(n, n) for n in cat_names]
+        intro = _t(lang, f"Separei {len(ranked)} opções de **{', '.join(cat_names).lower()}** "
+                         f"{PROFILE_LABEL['pt'][profile]}{self._budget_label(route, lang)}, todas disponíveis agora:",
+                   f"Here are {len(ranked)} **{', '.join(cat_names).lower()}** {PROFILE_LABEL['en'][profile]}"
+                   f"{self._budget_label(route, lang)}, all in stock now:")
+        items = []
+        for i, v in enumerate(ranked, start=1):
+            view = self.tools.catalog.product_view(v["product_id"], lang)
+            reason = "" if self.tools.catalog.description_conflict(v["product_id"]) else \
+                re.split(r"(?<=[.!?])\s", view["description"].strip())[-1]
+            line = f"{i}. {self._short_line(view, lang)[2:]}"
+            if reason:
+                line += "\n   " + _t(lang, f"Por quê: _{reason}_", f"Why: _{reason}_ (catalog description)")
+            items.append(line)
+        outro = _t(lang, "A indicação usa a descrição cadastrada de cada produto, o preço e o estoque atuais. Quer que eu "
+                         "compare duas delas lado a lado?",
+                   "This suggestion uses each product's catalog description, current price and stock. Want me to "
+                   "compare two of them side by side?")
+        return intro + "\n\n" + "\n".join(items) + "\n\n" + outro, ["products.csv", "promotions.csv"], False
 
     def _search_section(self, route: Route, state: ConversationState):
         lang = route.lang
@@ -719,8 +907,15 @@ class OfflineEngine:
                         "o horário pode ser estendido.",
                   "WhatsApp support follows the same hours. On special dates (Black Friday, store anniversary, "
                   "Christmas) hours may be extended.") if self._doc_says("datas especiais", "mesmo horario") else ""
+        from .store_hours import describe, open_status
+
+        status = open_status(self.kb.store_info.hours, self.clock())
+        now_line = ""
+        if status:
+            now_line = "\n\n" + describe(status, lang) + _t(lang, " Feriados não constam no sistema.",
+                                                              " Public holidays are not in our system.")
         return _t(lang, "Nosso horário de funcionamento:", "Our opening hours:") + "\n" + "\n".join(lines) + \
-            ("\n\n" + note if note else ""), \
+            now_line + ("\n\n" + note if note else ""), \
             [sec.citation()] if sec else info["sources"], False
 
     def _contact_section(self, route: Route, state: ConversationState):
