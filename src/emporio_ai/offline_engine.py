@@ -719,7 +719,7 @@ class OfflineEngine:
                   "WhatsApp support follows the same hours. On special dates (Black Friday, store anniversary, "
                   "Christmas) hours may be extended.") if self._doc_says("datas especiais", "mesmo horario") else ""
         return _t(lang, "Nosso horário de funcionamento:", "Our opening hours:") + "\n" + "\n".join(lines) + \
-            ("\n" + note if note else ""), \
+            ("\n\n" + note if note else ""), \
             [sec.citation()] if sec else info["sources"], False
 
     def _contact_section(self, route: Route, state: ConversationState):
