@@ -154,7 +154,7 @@ def split_chapters(md_text: str) -> list[str]:
 def readme_body() -> str:
     text = (ROOT / "README.md").read_text(encoding="utf-8")
     # Drop the README title block and its "Contents" list: the PDF has its own cover and TOC.
-    start = text.index("## 1. Executive summary")
+    start = re.search(r"(?m)^## 1\. ", text).start()
     body = text[start:]
     body = re.sub(r"(?m)^---\s*$", "", body)
     return fix_links(body, ROOT)

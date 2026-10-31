@@ -1,428 +1,452 @@
-# Empório AI — Intelligent Customer Service Agent
+# Empório AI — Customer Service Agent
 
-**Artefact Brasil technical challenge · AI Engineer – Full-Stack for Generative AI Applications**
-Candidate: **Vinicius de Souza Santos** · Repository: <https://github.com/ViniciusKanh/emporio-da-musica-ai-agent>
+A Python text agent that answers customers of **Empório da Música**, a fictional musical-instrument store in
+Campo Grande/MS. It looks up products, prices, stock, promotions and orders in the store's data, explains the
+store's policies (payment, returns, warranty, shipping, opening hours) with page references, and politely declines
+questions that are outside the store's scope.
 
-Empório AI is a Python text agent that serves customers of *Empório da Música*, a fictional musical-instrument store
-in Campo Grande/MS. It answers questions about products, prices, stock, promotions, payment conditions, orders and
-store policies, grounding every factual statement in the store's CSV data or in its policy manual, and it knows when
-to decline (out-of-scope requests, accessories the store does not sell) and when to hand over to a human.
+Built for the Artefact Brasil technical challenge — *AI Engineer, Full-Stack for Generative AI Applications* —
+by **Vinicius de Souza Santos**.
+
+**Run everything with one command** (creates the environment if needed, installs dependencies, runs the tests and
+opens the chat in your browser):
 
 ```bash
 git clone https://github.com/ViniciusKanh/emporio-da-musica-ai-agent.git
 cd emporio-da-musica-ai-agent
-pip install -r requirements.txt
-python run_cli.py -m "Quanto custa o Takamine GD20?"   # works without any API key
-python app.py                                             # Gradio UI on http://127.0.0.1:7860
-python -m pytest -q                                       # automated tests
+python run.py          # Windows: double-click run.bat  ·  Linux/macOS: ./run.sh
 ```
 
-> **Data note.** The original challenge files are not committed: the policy manual is marked *"Documento interno —
-> Uso restrito"* and `customers.csv` contains personal data (fictional, but treated as real). A fresh clone therefore
-> runs on **synthetic fixtures** in `data/sample/`. Copy the original files into `data/` to use the real snapshot —
-> see [Reproducibility](#9-reproducibility).
+Then open <http://127.0.0.1:7860>. No API key is needed to try it (see [§2](#2-how-to-run)).
 
 ---
 
 ## Contents
 
-1. [Executive summary](#1-executive-summary)
-2. [Architecture](#2-architecture)
-3. [Technical decisions](#3-technical-decisions)
-4. [Data and retrieval](#4-data-and-retrieval)
-5. [Agent workflow](#5-agent-workflow)
-6. [Validation and testing](#6-validation-and-testing)
+1. [The challenge and how this project answers it](#1-the-challenge-and-how-this-project-answers-it)
+2. [How to run](#2-how-to-run)
+3. [How the agent works](#3-how-the-agent-works)
+4. [Technical decisions and why](#4-technical-decisions-and-why)
+5. [Data: what was used and how it was treated](#5-data-what-was-used-and-how-it-was-treated)
+6. [Business rules applied](#6-business-rules-applied)
 7. [Interaction examples](#7-interaction-examples)
-8. [Security, privacy and limitations](#8-security-privacy-and-limitations)
-9. [Reproducibility](#9-reproducibility)
-10. [AI-assisted development disclosure](#10-ai-assisted-development-disclosure)
+8. [Tests and validation](#8-tests-and-validation)
+9. [Security and privacy](#9-security-and-privacy)
+10. [Assumptions](#10-assumptions)
+11. [Known limitations and what I would do with more time](#11-known-limitations-and-what-i-would-do-with-more-time)
+12. [Configuration reference](#12-configuration-reference)
+13. [Use of AI coding assistants](#13-use-of-ai-coding-assistants)
 
 ---
 
-## 1. Executive summary
+## 1. The challenge and how this project answers it
 
-### Business problem
+**Scenario.** The store's staff answers every message by hand and is overloaded with repetitive questions:
+opening hours, order status, prices, availability. The goal is a prototype agent that helps the team answer these
+messages. The store's own manual (§7.1) warns that giving prices, stock or delivery times *without checking the
+system* can mislead customers — so the main design goal here is: **be helpful, but never invent a fact.**
 
-The store's staff answers every message by hand and is overloaded by recurring questions: opening hours, order
-status, price and availability of instruments, payment conditions, returns. Wrong answers are costly — the store's
-own manual (§7.1) warns that quoting prices, stock or delivery times without checking the system "may constitute
-misleading advertising". The assistant must therefore be **useful and conversational, but never invent facts**.
-
-### Solution
-
-A hybrid agent with a strict separation of responsibilities:
-
-* **Facts come from tools, never from the model's memory.** Eight typed, read-only Python tools query the six CSVs
-  (pandas) and the policy manual (section-level retrieval with page citations).
-* **Gemini with native function calling** (`google-genai` SDK) decides which tools to call and writes a natural
-  answer in the customer's language. Its answer passes a **grounding check** (every `R$` amount must come from a tool
-  result; no personal data may be echoed) before reaching the customer.
-* A **deterministic offline engine** answers with the same tools when there is no API key, when the provider fails,
-  or when the LLM answer fails the grounding check. It is also the reference behaviour for the regression tests.
-* **Guardrails** block prompt injection, bulk-data requests and unauthorized actions (cancellations, discounts,
-  refunds) before any model call, and order data is only returned for an order number **plus** the e-mail
-  registered on that order.
-
-### Features
-
-| Area | What the agent does |
-|---|---|
-| Catalog & inventory | Search by name, model, brand, category, sub-type (nylon/steel/electro-acoustic/7-string, ukulele size) and price range; stock and commercial status (`active`, `discontinued`, `coming_soon`, out of stock); alternatives for unavailable items. |
-| Prices & promotions | List and promotional prices with discount %; active vs. inactive promotions; non-cumulative rule (best single promotion; PIX 5% never stacked); PIX price; maximum interest-free installments by minimum-installment tiers. |
-| Orders | Verified lookup (order id + e-mail, possibly across two messages), recorded status vs. real-time tracking disclaimer, items, total, tracking code, cancellation notes; 3-attempt limit per session; uniform failure message. |
-| Policies | Payment, returns, exchanges, non-eligible items, warranty, shipping, privacy, hours and contacts, with `§section (page)` citations; detection of contradictions inside the manual; escalation of cases that need human judgement. |
-| Conversation | Portuguese and English; compound questions; follow-ups ("e no pix?", "e até 600?", "e quando chega?"); per-session state; out-of-scope handling. |
-| Interfaces | Gradio chat with trace panel, CLI, Google Colab notebook. |
+| What the challenge asks | How it is answered | Where |
+|---|---|---|
+| A Python text-messaging agent | Python package `emporio_ai`, chat in a web UI (Gradio), terminal (CLI) and Google Colab | `src/`, `app.py`, `run_cli.py`, `notebooks/` |
+| Persona aligned with the store's identity and tone | "Informal but professional, like a friend who understands music" — the tone defined in the manual (§7.1); answers in Portuguese or English | `llm.py` (system prompt), `offline_engine.py` |
+| Answer based on the provided context | Every price, stock level, promotion, order status and policy comes from the CSV files or the policy PDF; each answer lists its sources | `tools.py` |
+| Know when to query **data** (availability, prices, order status) | 5 data tools: product search, product details, promotions, payment options, order status | `catalog.py`, `orders.py`, `business_rules.py` |
+| Know when to query **policies** (returns, hours, payment methods) | Retrieval over the policy PDF, split by section, with section and page citations | `policies.py` |
+| Handle out-of-scope questions | Polite refusal + what the agent can help with; accessories (not sold, per the manual) are redirected; prompt-injection attempts are refused | `guardrails.py`, `router.py` |
+| Justify framework, LLM, retrieval and prompt strategy | [§4](#4-technical-decisions-and-why) | — |
+| Known limitations and next steps | [§11](#11-known-limitations-and-what-i-would-do-with-more-time) | — |
+| AI coding assistants used | [§13](#13-use-of-ai-coding-assistants) | — |
+| 3 to 5 example conversations, at least one non-trivial | 5 conversations generated by running the agent | `examples/` |
 
 ---
 
-## 2. Architecture
+## 2. How to run
+
+### Requirements
+
+* Python **3.10 or newer** (the test suite was run on Python 3.10 and 3.13) and internet access for the first
+  install. No GPU.
+* Optional: a free Google Gemini API key from <https://aistudio.google.com/apikey>.
+
+### Option A — one command (recommended)
+
+```bash
+python run.py              # setup (only if needed) -> tests -> web chat at http://127.0.0.1:7860
+python run.py --cli        # same, but chat in the terminal
+python run.py --test-only  # setup + tests only
+python run.py --skip-tests # start faster, without running the tests
+python run.py --offline    # ignore the API key and use the deterministic mode
+python run.py --share      # temporary public link (useful on remote machines)
+```
+
+On Windows you can also double-click **`run.bat`** (or run `run.bat --cli`, etc.). On Linux/macOS: `./run.sh`.
+
+`run.py` only uses the Python standard library. It creates `.venv/` **only if it does not exist**, reinstalls the
+dependencies **only if `requirements.txt` changed**, runs the tests (and stops if one fails) and then starts the
+chosen interface — all in the same terminal.
+
+### Option B — step by step
+
+```bash
+python -m venv .venv
+# Windows: .venv\Scripts\activate        Linux/macOS: source .venv/bin/activate
+pip install -r requirements.txt
+python -m pytest -q          # tests
+python app.py                # web chat (add --share for a public link, --offline to skip the LLM)
+python run_cli.py --trace    # terminal chat that also shows the tools and sources used
+```
+
+### Data files
+
+The original challenge files are **not** in this repository: the policy manual is marked *"Documento interno —
+Uso restrito"* and `customers.csv` contains personal data (fictional, but treated as real). Without them the agent
+runs on **synthetic sample data** in `data/sample/`, clearly labelled as such.
+
+To use the original data, copy the six CSV files (keeping their original names, e.g.
+`desafio_tecnico_ai_eng - products.csv`) and `políticas_da_loja.pdf` into `data/`. The agent detects them
+automatically.
+
+### Gemini (optional)
+
+```bash
+cp .env.example .env     # Windows: copy .env.example .env
+# edit .env and set GEMINI_API_KEY=your_key
+```
+
+With a key the agent uses Gemini; without it, it uses the deterministic mode. The interface always shows which
+mode answered.
+
+### Google Colab
+
+Open `notebooks/Emporio_AI_Colab.ipynb` in Colab (*File → Open notebook → GitHub*, paste the repository URL) and
+choose *Runtime → Run all*. It clones the repository, installs the dependencies, runs a demo and the tests. Optional
+cells let you upload the original files, read `GEMINI_API_KEY` from Colab *Secrets* and open the chat UI with a
+public link.
+
+---
+
+## 3. How the agent works
 
 ![Architecture](docs/assets/architecture.png)
 
-| Layer | Module(s) | Responsibility |
+In plain words, every message goes through five steps:
+
+1. **Safety check.** The message is checked for prompt injection ("ignore your instructions"), requests for other
+   customers' data, and requests the agent is not allowed to fulfil (cancel an order, give a discount, refund).
+   These are answered with a refusal or a referral to the human team and never reach the language model.
+2. **Choose the mode.** If a Gemini API key is configured, Gemini handles the conversation. Otherwise — or if
+   Gemini fails — the deterministic engine answers. The mode used is always reported.
+3. **Look up the facts with tools.** The model (or the deterministic engine) calls read-only Python tools:
+   search products, get product details, list promotions, calculate payment options, estimate shipping, search
+   the policy manual, get store info, get order status. Tools return data **and** the sources used.
+4. **Write the answer.** Gemini writes a natural reply from the tool results. The deterministic engine fills
+   reviewed templates with the same results and quotes the relevant policy excerpt.
+5. **Check the answer before sending it.** Every price (`R$ …`) in a Gemini answer must exist in the tool
+   results, and no customer e-mail or phone may appear. If the check fails, the deterministic answer is sent
+   instead. The reply comes with its sources and, when needed, a referral to the human team.
+
+**Conversation memory.** Each session keeps a small in-memory state so that follow-ups work: *"Quanto custa o
+Takamine GD20?"* → *"e no pix?"*; *"Quais ukuleles?"* → *"e até 300?"*; *"Onde está meu pedido 8?"* →
+(customer sends the e-mail) → *"e quando chega?"*. Nothing is stored on disk.
+
+**Compound questions.** A message such as *"Quanto custa o Taylor 110e e qual o horário de sábado?"* is split into
+all its intents, and each one gets its own part of the answer.
+
+---
+
+## 4. Technical decisions and why
+
+The challenge leaves these choices open and asks for a justification of each one.
+
+### Agent approach: hybrid — function calling + retrieval (RAG) + deterministic rules
+
+| Need | Choice | Why |
 |---|---|---|
-| Interfaces | `app.py`, `run_cli.py`, `notebooks/Emporio_AI_Colab.ipynb` | Gradio chat (per-session state, examples, trace panel, error handling), CLI, Colab. |
-| Facade | `src/emporio_ai/agent.py` | Loads data once, keeps sessions, selects mode (Gemini/offline), applies fallbacks, returns `AgentResponse(text, mode, intents, tool_calls, sources, handoff, warnings)`. |
-| LLM provider | `llm.py` | Gemini client, system prompt, tool declarations (JSON Schema), bounded manual function-calling loop, e-mail tokenisation, grounding check. |
-| Offline engine | `router.py`, `offline_engine.py`, `conversation.py` | Multi-label intent detection and entity extraction (PT/EN), context resolution, deterministic grounded answers. |
-| Tools | `tools.py` | 8 read-only tools with argument validation, `sources` and an execution trace. |
-| Domain | `catalog.py`, `business_rules.py`, `orders.py`, `policies.py` | Product matching and search, promotion and payment rules, verified order view, policy chunking/BM25/store facts. |
-| Data | `data_store.py`, `config.py` | Typed CSV loading with schema and integrity validation; environment-based configuration. |
-| Safety | `guardrails.py` | Injection/bulk-data/action heuristics, PII redaction for logs, PII vault for the LLM path. |
+| Prices, stock, promotions, orders | **Function calling** over typed, read-only Python tools (pandas) | These must be exact. A tool returns the real value; the model only decides *which* tool to call and how to phrase the answer. |
+| Store policies | **Retrieval (RAG)** over the policy PDF | Policies are free text; the agent must quote the right section instead of answering from memory. |
+| Discounts, PIX, installments, shipping fee | **Deterministic business rules** in code | Arithmetic and rule combinations (e.g. "PIX discount does not stack with promotions") are tested in code, not left to the model. |
+| No API key / provider error | **Deterministic engine** with the same tools | The agent keeps working, and the tests have a stable reference behaviour. |
 
-More detail (tool contracts, data-quality findings, policy conflicts, decision log):
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+**Why no agent framework (LangChain, LlamaIndex, a SQL agent)?** The data is small (six CSV files, under 70 rows
+each, and an 8-page manual) and the main risk is *wrong facts*, not scale. Plain Python plus the provider's
+native function calling keeps every step visible, testable and easy to explain, with only five dependencies
+(`pandas`, `pypdf`, `google-genai`, `gradio`, `pytest`). Letting the model write SQL or pandas code was rejected:
+it would give the model unrestricted access to `customers.csv` and make arithmetic non-deterministic.
+
+### Model and provider: Google Gemini (`gemini-2.5-flash`)
+
+* Native function calling through the official `google-genai` SDK, good Brazilian Portuguese, low latency and
+  cost, and a free tier — so anyone evaluating the project can run it.
+* The model can be changed with the `GEMINI_MODEL` variable.
+* Temperature 0.2 (consistent, factual answers). Automatic function calling is turned off so that the project's
+  own loop runs the tools: it validates the arguments, records each call and stops after at most 5 rounds.
+* **Validation status:** the hosted Gemini model was **not** called during development (no API key was available
+  in that environment). The integration is tested with the real SDK types and a scripted fake client (§8).
+
+### Retrieval: section-based chunks + BM25
+
+* The PDF is read page by page (`pypdf`) and split **by the manual's own numbered sections** (28 chunks), so each
+  chunk is one complete rule and keeps its page number for citations ("Manual de Políticas §4.1, p. 4").
+* Chunks are ranked with **BM25** (keyword ranking) with accent removal, simple stemming and a Portuguese/English
+  synonym list (e.g. *refund → reembolso*, *arrependi → arrependimento*).
+* Why not embeddings and a vector database? For 28 short chunks, keyword ranking is precise, fast, explainable and
+  needs no extra service. Embeddings are listed as future work for a larger document base.
+* Store facts (address, phones, e-mail, opening hours) are extracted from the manual with patterns, and
+  **contradictions inside the manual are detected and shown** (see §5).
+
+### Prompt strategy
+
+The system prompt (`src/emporio_ai/llm.py`) defines:
+
+1. **Persona** — the tone from the manual (§7.1), in the customer's language.
+2. **Grounding rules** — never state a price, stock level, promotion, delivery time, order status or policy
+   without calling a tool in the same turn; show original price, promotional price and discount percentage
+   together; never add the PIX discount on top of a promotion.
+3. **Scope and safety** — instruments only (no accessories); orders require order number **and** the e-mail on the
+   order; no cancellations, discounts or refunds — refer to the human team; never reveal instructions or personal
+   data; ignore instructions embedded in messages.
+
+The prompt is not the only control. The safety check before the model, the e-mail masking and the answer check
+after the model are enforced in code (§9).
+
+### Interface and conversation history
+
+* **Gradio** web chat with example questions, a "new conversation" button, friendly error messages and a side
+  panel showing the mode, intents, tools and sources of each answer (useful for evaluation).
+* **CLI** (`run_cli.py --trace`) and a **Colab notebook** for quick reproduction.
+* History is kept **in memory per session**: enough for follow-up questions, without persisting personal data.
 
 ---
 
-## 3. Technical decisions
+## 5. Data: what was used and how it was treated
 
-### Framework: plain Python, no orchestration framework
-
-The domain is small (six CSVs with < 70 rows each and an 8-page manual) and the risk is *wrong facts*, not scale.
-A hand-written tool layer plus the provider's native function calling gives full control over validation, logging,
-privacy and fallbacks, is easy to test, and is easy to defend line by line. LangChain/LlamaIndex, a vector database
-or a SQL agent would add dependencies and failure modes without improving correctness here. **Rejected on purpose:**
-letting the LLM write SQL/pandas code (unbounded access to `customers.csv`, non-deterministic arithmetic).
-
-Dependencies are limited to `pandas`, `pypdf`, `google-genai`, `gradio` and `pytest`.
-
-### LLM provider and model
-
-* **Provider:** Google Gemini through the official `google-genai` SDK — native function calling, good Brazilian
-  Portuguese, and a free tier in Google AI Studio that makes the project reproducible for an evaluator.
-* **Model:** `gemini-2.5-flash` by default (fast and inexpensive, supports function calling); configurable with
-  `GEMINI_MODEL` — any Gemini model with function calling can be used.
-* **Temperature 0.2**, automatic function calling **disabled** so the loop is executed by our code
-  (validation, tracing, at most `EMPORIO_MAX_TOOL_ROUNDS = 5` rounds).
-* **Validation status:** no Gemini API key was available in the development environment, so **the hosted model was
-  not called during development**. The integration is exercised by tests that use the real `google-genai` types with
-  a scripted fake client (see §6). The mode used for every answer is reported (`mode = gemini | offline`).
-
-### Function-calling design
-
-| Tool | Purpose | Notes |
+| File | Used for | Treatment |
 |---|---|---|
-| `search_products` | Category / budget / brand / keyword search | Hides unavailable items by default and reports how many were hidden. |
-| `get_product_details` | One model: price, stock, status, promotion, PIX, installments | Returns alternatives when unavailable. |
-| `list_promotions` | Active promotions; promotion history of a product or campaign | States that inactive ≠ valid; dataset has no dates. |
-| `calculate_payment_options` | PIX price and installments for a product or amount | Applies non-cumulative and minimum-installment rules. |
-| `estimate_shipping` | Metro Campo Grande rule; other cities → checkout | Never invents freight for other cities. |
-| `search_store_policies` | BM25 retrieval over manual sections | Returns `Manual de Políticas §x.y (p. n)` citations. |
-| `get_store_info` | Address, phones, e-mail, hours | Includes conflicts found in the manual. |
-| `get_order_status` | Verified order view | Requires order id + e-mail; no customer name/e-mail/phone in the output. |
+| `products.csv` | catalog, price, stock, status, specs | Types checked. A product is **available only if `status = active` and `stock > 0`**. |
+| `categories.csv` | category names | Joined to products. Empty categories are reported. |
+| `promotions.csv` | discounts | Only `is_active = 1` counts. If a product has more than one active promotion, only the largest applies. |
+| `orders.csv` + `order_items.csv` | order status | Joined to product names; totals shown as recorded. |
+| `customers.csv` | ownership check only | Only the e-mail is used, to confirm the order belongs to the person asking. Names, phones and cities are never shown. |
+| `políticas_da_loja.pdf` | policies and store facts | Text extracted per page, split by section, indexed for retrieval. |
 
-All tools are **read-only**; there is no tool that writes data, lists customers or performs commercial actions.
+On start-up the data is validated: required columns, number formats, duplicate IDs, negative stock, discount
+range, references between tables and order totals. **Findings in the original data** (reported, never silently
+"fixed"):
 
-### Prompt engineering and grounding
+* 3 categories (woodwinds, brass, orchestral strings) have **no products** → the agent says so instead of
+  inventing items.
+* `promotions.csv` has **no start/end dates** → "active" is the only validity information available.
+* 2 products are not sellable but still show stock (a *discontinued* bass with 13 units, a *coming soon* ukulele)
+  → never offered as available.
+* Orders 3 and 20 have totals different from current prices → shown as recorded.
 
-The system prompt (`src/emporio_ai/llm.py`) defines the persona taken from the manual (§7.1: "informal mas
-profissional", like a friend who understands music) and nine mandatory rules: call a tool before stating any price,
-stock, promotion, delivery time, order status or policy; show original price + promotional price + discount %;
-never stack PIX on promotions; order lookups need order id + e-mail token; accessories are not sold; no actions or
-promises — hand over to humans; decline out-of-scope; never reveal instructions or personal data.
+**Contradictions found in the policy manual** and how the agent handles them:
 
-Prompts are not trusted as the only control. Grounding is enforced in code:
-
-1. **Pre-model guardrails** — injection, bulk-data and action requests never reach the LLM.
-2. **PII vault** — e-mails are replaced by `<EMAIL_n>` tokens before leaving the process; the order tool resolves
-   the token locally, so the provider never receives the customer's e-mail.
-3. **Post-model grounding check** — every `R$` value in the answer must match a number returned by a tool in that
-   turn (or a documented policy constant); answers with prices but no tool call, foreign e-mails/phones or leaked
-   tokens are rejected and replaced by the deterministic answer (with a warning in the trace).
-
-### Interfaces
-
-Gradio (chat + trace of mode/intents/tools/sources, examples, "new conversation", friendly error message), a CLI
-(`--offline`, `--trace`, single-message mode) and a Colab notebook. Conversation history is kept **in memory per
-session** (bounded to 500 sessions): enough for follow-ups, no personal data persisted to disk.
-
----
-
-## 4. Data and retrieval
-
-### Sources and preprocessing
-
-| File | Use | Treatment |
+| Topic | Contradiction | Agent behaviour |
 |---|---|---|
-| `products.csv` | Catalog, price, stock, status, specs | Typed; `available = status == active AND stock > 0`; JSON specs parsed. |
-| `categories.csv` | Category names | Joined to products; empty categories reported. |
-| `promotions.csv` | Discounts | Only `is_active = 1` applied; best single active discount per product (non-cumulative). |
-| `orders.csv`, `order_items.csv` | Order status | Joined to product names; recorded totals reported as recorded. |
-| `customers.csv` | Ownership check only | Only the normalised e-mail is used; names/phones/cities are never output. |
-| `políticas_da_loja.pdf` | Policies and store facts | Layout-mode text extraction per page, section chunking, BM25 index. |
-
-Validation on load (`DataStore`) checks required columns, numeric types, duplicated keys, negative stock, discount
-range, orphan foreign keys and order totals. Findings on the original snapshot (reported, never silently fixed):
-
-* three categories (woodwinds, brass, orchestral strings) have **no products** → the agent says so;
-* `promotions.csv` has **no start/end dates** → validity is `is_active` only; expired and future campaigns cannot be
-  distinguished (documented limitation);
-* two non-active products still show stock (a *discontinued* bass with 13 units, a *coming soon* ukulele) → never sold;
-* recorded totals of orders 3 and 20 differ from current list prices → reported as recorded.
-
-### Business rules (from the manual, enforced in `business_rules.py`)
-
-PIX 5% off the **list** price, not applicable to promotional prices (§3, §6.2) · credit card up to 12x interest-free
-with minimum installment R$ 50 (1–3x), R$ 80 (4–6x), R$ 100 (7–12x) (§3.1) · combined payment above R$ 2.000 ·
-metro Campo Grande shipping free above R$ 500, otherwise R$ 35, 1–3 business days (§5.1) · 7-day withdrawal after
-receipt for online purchases (§4.1) · 30-day defect exchange after purchase (§4.2) · 90-day legal warranty from
-receipt (§8.1). At start-up `PolicyKnowledgeBase.verify_rules` checks that each value still appears in the manual;
-if one is missing, the offline engine stops using its curated wording and quotes the retrieved text instead.
-
-### Retrieval (RAG) strategy
-
-* **Chunking by document structure**: one chunk per numbered (sub)section (28 chunks for the original manual), with
-  the parent title prepended and the page range kept for citations.
-* **Ranking**: BM25 with accent folding, stop words, 5-character prefix stemming and a PT/EN synonym table
-  (e.g. *refund → reembolso, devolução*; *arrependi → arrependimento*). For an 8-page manual a lexical ranker is
-  precise, explainable and dependency-free; embeddings and a vector store are listed as future work for larger corpora.
-* **Structured extraction**: address, phones, e-mail and opening hours are parsed from the manual by regex.
-* **Conflicts in the manual are surfaced, not hidden**: two different WhatsApp numbers ((67) 3341-4444 in §1.2 and
-  (67) 3321-4500 in §7), a misspelled e-mail domain (`empóriodamusica`), and a summary table (§3, "parcela mínima
-  R$ 100,00") that conflicts with the detailed installment rules (§3.1). The agent shows both numbers with a note,
-  uses the ASCII e-mail, and applies the more specific §3.1 rule.
-* **Overlapping rules are escalated**: e.g. a defect after 45 days falls outside the 30-day store exchange but may be
-  inside the 90-day legal warranty — the agent explains both and routes to a human instead of denying the claim.
+| WhatsApp | §1.2 lists (67) 3341-4444; §7 names (67) 3321-4500 as the WhatsApp channel | Shows both, with a note |
+| E-mail | Written with and without an accent in the domain | Uses the version without the accent |
+| Installments | §3 table says "minimum installment R$ 100"; §3.1 gives R$ 50 / 80 / 100 by number of installments | Applies the more detailed §3.1 |
+| Defect vs. warranty | §4.2: exchange within 30 days of purchase; §8.1: 90-day legal warranty from receipt | Explains both and refers cases between 30 and 90 days to the team instead of denying them |
 
 ---
 
-## 5. Agent workflow
+## 6. Business rules applied
 
-1. **Input** — empty and oversized messages are handled; the message is logged with PII redacted.
-2. **Guardrails** (`inspect_message`) — prompt injection, bulk-data requests and unauthorized actions are detected.
-   Flagged messages skip the LLM; the offline engine refuses the unsafe part and still answers legitimate parts.
-3. **Mode selection** — Gemini if `GEMINI_API_KEY` is set and `EMPORIO_LLM_MODE` ≠ `offline`; otherwise offline.
-4. **Gemini path** — the tokenised message and a bounded history are sent with the 8 tool declarations; each
-   function call is validated and executed locally, results are returned as function responses; the final text is
-   grounding-checked. Any exception, loop overrun or grounding failure → offline answer + warning.
-5. **Offline path** — `IntentRouter` returns *all* intents present (e.g. `product_info + hours`) plus entities
-   (products, categories, price range, sub-types, order id, e-mail, language); context from the session fills
-   follow-ups; one section per intent is generated from tool results and joined into one answer.
-6. **Output** — answer text plus `mode`, `intents`, `tool_calls` (with redacted arguments), `sources`, `handoff`
-   and `warnings`, shown in the Gradio trace panel and in the CLI with `--trace`.
+| Rule | Value | Source in the manual |
+|---|---|---|
+| PIX discount | 5% on the **list** price, never on a promotional price | §3, §6.2 |
+| Promotions | Not cumulative; always show original price + promotional price + % | §6.2 |
+| Credit card | Up to 12x interest-free; minimum installment R$ 50 (1–3x), R$ 80 (4–6x), R$ 100 (7–12x) | §3.1 |
+| Combined payment | Allowed above R$ 2.000 | §3.1 |
+| Shipping, Campo Grande metro area | Free above R$ 500, otherwise R$ 35; 1–3 business days | §5.1 |
+| Shipping, other cities | Calculated at checkout from CEP, weight and size — **not quoted by the agent** | §5.2 |
+| Online return (regret) | 7 days after **receipt** | §4.1 |
+| Defect exchange | 30 days after purchase | §4.2 |
+| Legal warranty | 90 days after receipt | §8.1 |
+| Accessories | Not sold — redirect politely | §1, §7.1 |
 
----
-
-## 6. Validation and testing
-
-```bash
-python -m pytest -q                 # all tests (original-data tests are skipped if data/ has no original files)
-python scripts/run_evaluation.py    # runs public + full configurations and writes docs/EVALUATION.md
-```
-
-Observed results (from [`docs/EVALUATION.md`](docs/EVALUATION.md), generated from pytest's JUnit XML):
-
-| Configuration | Passed | Failed | Skipped |
-|---|---:|---:|---:|
-| Public clone (synthetic fixtures only) | 83 | 0 | 16 |
-| Full (fixtures + original challenge files) | 99 | 0 | 0 |
-
-Test modules: `test_regressions` (the 8 previously reported failures), `test_security` (injection, exfiltration,
-unauthorized actions, attempt limit, PII in traces), `test_conversation` (follow-ups, multi-turn order verification,
-session isolation, language switch), `test_policy_retrieval` (ranking, citations, rule drift, conflicts),
-`test_data_and_rules` (validation, installment tiers, non-cumulative discounts), `test_gemini_loop`
-(function-calling round trip, e-mail tokenisation, grounding rejection, provider errors, loop bound) and
-`test_original_dataset` (challenge scenarios on the original snapshot).
-
-| Previously reported failure | How it is prevented |
-|---|---|
-| Accessories returned instruments | Accessory detector that ignores words belonging to a matched product name (e.g. "Tuner") and categories used as modifiers ("cabo para guitarra") |
-| Two-intent questions answered partially | Multi-label router; one section per intent |
-| English not understood | EN vocabulary in router/retrieval; EN templates; language detection per message |
-| Out-of-stock announced as available | `available = active AND stock > 0`; unavailable items hidden from lists and flagged in details |
-| Promotions applied outside validity | Only active promotions applied; inactive ones explicitly reported as not valid |
-| Non-cumulative discounts violated | Best single promotion; PIX only on list price |
-| Orders revealed without verification | id + e-mail match, uniform failure message, 3-attempt limit, session isolation |
-| Information invented | "not found" answers, empty-category message, no freight quotes outside metro, no live-tracking claims, LLM grounding check |
-
-The test names covering each failure are listed in [`docs/EVALUATION.md`](docs/EVALUATION.md).
-
-**What was validated vs. prepared**
-
-| Item | Status |
-|---|---|
-| Offline agent on synthetic and original data | **Validated** (tests + generated examples) |
-| Gemini function-calling loop (SDK types, tool execution, tokenisation, grounding, fallback) | **Validated with a scripted fake client** |
-| Hosted Gemini model answers | **Not validated** — no API key available during development |
-| Colab notebook | **Executed end-to-end with `jupyter nbconvert` in a Linux environment**, not inside Colab |
-| Gradio app | **Launched and exercised** locally (screenshot below is a real capture) |
-
-![Gradio UI](docs/assets/gradio_ui_catalog.png)
+These values live in `business_rules.py`. At start-up the agent checks that each one still appears in the policy
+document; if one is missing (the manual changed), it stops using its prepared wording and quotes the manual instead.
 
 ---
 
 ## 7. Interaction examples
 
-Five conversations generated by **actually running the agent** (`python scripts/generate_examples.py`, offline mode,
-original snapshot). Portuguese turns carry an author-written English note; customer e-mails are redacted.
+Five conversations produced by **running the agent** on the original data (`python scripts/generate_examples.py`,
+deterministic mode). Portuguese messages have an English translation note; customer e-mails are hidden.
 
-| File | Scenario |
+| File | What it shows |
 |---|---|
-| [`examples/01_catalog_budget_search.md`](examples/01_catalog_budget_search.md) | "Violões até R$1000", follow-up budget, nylon filter, out-of-stock item with alternatives |
-| [`examples/02_price_promotions_payment.md`](examples/02_price_promotions_payment.md) | Takamine GD20 price, PIX, promotion not stacked with PIX, expired campaign, active promotions |
-| [`examples/03_returns_warranty_policies.md`](examples/03_returns_warranty_policies.md) | Return policy with citation, non-eligible item, 45-day defect escalated, compound policy question |
-| [`examples/04_order_status_privacy.md`](examples/04_order_status_privacy.md) | **Non-trivial:** order verification across turns, snapshot vs. live tracking, verified order + return policy → human handoff, wrong e-mail |
-| [`examples/05_english_scope_and_safety.md`](examples/05_english_scope_and_safety.md) | English compound question, accessories, out-of-scope, prompt injection + exfiltration, cancellation request |
+| [`01_catalog_budget_search.md`](examples/01_catalog_budget_search.md) | *"Quais opções de violões disponíveis custando até R$1000?"*, a follow-up budget, a nylon filter and an out-of-stock product with alternatives |
+| [`02_price_promotions_payment.md`](examples/02_price_promotions_payment.md) | *"Quanto custa o Takamine GD20?"*, PIX price, a promotion that does not stack with PIX, an expired campaign, active promotions |
+| [`03_returns_warranty_policies.md`](examples/03_returns_warranty_policies.md) | *"Me arrependi da minha compra, posso devolver meu pedido?"* with citation, a non-returnable item, a 45-day defect referred to the team |
+| [`04_order_status_privacy.md`](examples/04_order_status_privacy.md) | **Non-trivial:** order check over two messages, recorded status vs. live tracking, return request on a verified order, wrong e-mail |
+| [`05_english_scope_and_safety.md`](examples/05_english_scope_and_safety.md) | English compound question, accessories, out-of-scope question, prompt injection, cancellation request |
 
-Why the agent behaves this way in the most important decisions:
+Three decisions worth highlighting:
 
-* **"Quanto custa o Taylor 110e?"** — an 8% promotion is active, so the answer shows *De R$ 5.999,00 por
-  R$ 5.519,08 (8% off)* and explicitly says PIX does not stack (§6.2).
-* **"A promoção de Black Friday do Martin D-28 ainda vale?"** — there is no Black Friday record for that product; its
-  recorded promotions are inactive, so the current price is quoted and no discount is promised (§7.3).
-* **"Quero devolver o pedido 4"** (verified) — the order is *delivered*, but the 7-day window counts from **receipt**,
-  which is not in the data; the agent explains the rule, cites §4.1 and hands over to the team.
-
----
-
-## 8. Security, privacy and limitations
-
-### Security and privacy
-
-* Read-only tools; no data-modifying or bulk-listing capability exists for the model to misuse.
-* Order access requires order id + matching e-mail; the same message is returned for "wrong e-mail" and "order does
-  not exist"; 3 failed attempts lock order lookups for the session. **This is a prototype check, not authentication:**
-  e-mails are guessable/shareable and there is no OTP or login.
-* Customer e-mails are tokenised before any LLM call; tool traces and logs redact e-mails, phones and CPF-like numbers;
-  answers never include customer names, e-mails or phones.
-* Secrets via environment variables / `.env` (git-ignored); `.env.example` documents the variables.
-* The restricted policy manual and the original customer file are not published; synthetic fixtures are clearly
-  labelled as synthetic and are never presented as store data.
-
-### Known limitations
-
-* **Hosted Gemini behaviour not validated** (no key during development); prompt quality, tool-selection accuracy and
-  latency of the real model are unmeasured.
-* The offline engine is rule-based: robust for the tested phrasings, but unusual wording, typos or long multi-topic
-  messages may be misrouted; it falls back to policy retrieval or an out-of-scope message rather than guessing.
-* Curated offline answer templates encode policy wording; they are guarded by anchor checks, but a substantially
-  rewritten manual would need template review.
-* Promotions have no dates: expired vs. future campaigns cannot be distinguished.
-* Order status is a CSV snapshot; no carrier integration, no receipt date (so return eligibility is escalated).
-* Freight for cities outside the metro area cannot be quoted (needs CEP, weight and dimensions).
-* BM25 retrieval is lexical; synonyms outside the table may lower recall.
-* Sessions live in process memory (lost on restart, single instance); no rate limiting in the UI.
-
-### Future improvements
-
-1. Run an evaluation set against the hosted model (tool-selection accuracy, grounding-failure rate, latency, cost).
-2. Hybrid retrieval (BM25 + embeddings) with re-ranking for a larger policy corpus.
-3. Real authentication (OTP to the registered e-mail/WhatsApp) and audit logging.
-4. Promotion validity dates and live inventory/order/carrier APIs.
-5. Persistent, multi-instance session store, rate limiting and observability (tracing of tool calls).
-6. Human-handoff integration (ticket creation) instead of only pointing to WhatsApp.
+* **"Quanto custa o Taylor 110e?"** — an 8% promotion is active, so the answer shows *"De R$ 5.999,00 por
+  R$ 5.519,08 (8% off)"* and says the PIX discount does not apply on top of it.
+* **"A promoção de Black Friday do Martin D-28 ainda vale?"** — there is no Black Friday record for that product and
+  its recorded promotions are inactive, so the agent gives the current price and promises no discount.
+* **"Quero devolver o pedido 4"** (verified) — the order was delivered, but the 7-day window counts from the day the
+  customer *received* it, which is not in the data. The agent explains the rule, cites §4.1 and refers the case to
+  the team instead of guessing.
 
 ---
 
-## 9. Reproducibility
-
-### Requirements
-
-Python **3.10+** (test suite run on Python 3.13 with pandas 3.0 and on Python 3.10 with pandas 2.3), `pip`. No GPU.
-
-### Installation
+## 8. Tests and validation
 
 ```bash
-git clone https://github.com/ViniciusKanh/emporio-da-musica-ai-agent.git
-cd emporio-da-musica-ai-agent
-python -m venv .venv
-# Linux/macOS: source .venv/bin/activate     Windows (PowerShell): .venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+python run.py --test-only           # or: python -m pytest -q
+python scripts/run_evaluation.py    # writes docs/EVALUATION.md with the observed results
 ```
 
-### Data
+| Configuration | Passed | Failed | Skipped |
+|---|---:|---:|---:|
+| Fresh clone (synthetic data only) | 83 | 0 | 16 |
+| With the original challenge files in `data/` | 99 | 0 | 0 |
 
-Without further steps the agent uses `data/sample/` (synthetic). To use the original challenge snapshot, copy the six
-CSVs (original names, e.g. `desafio_tecnico_ai_eng - products.csv`) and `políticas_da_loja.pdf` into `data/`.
-`EMPORIO_DATA_DIR` and `EMPORIO_POLICY_PATH` override the locations.
+The 16 skipped tests are the ones that need the original files. Full report: [`docs/EVALUATION.md`](docs/EVALUATION.md).
 
-### LLM provider (optional)
+**What the tests cover.** Each problem found in the previous version of this project has its own regression tests:
 
-```bash
-cp .env.example .env        # then set GEMINI_API_KEY=... (Google AI Studio key)
-```
+| Problem in the previous version | How it is prevented now |
+|---|---|
+| Accessory questions returned instruments | Accessory detection that ignores words belonging to a product name (e.g. "Tuner") and categories used as a qualifier ("cabo para guitarra") |
+| Questions with two intents got half an answer | Every intent in the message is detected and answered |
+| English questions were not understood | English vocabulary, English answers, language detected per message |
+| Out-of-stock products shown as available | Available = active **and** stock > 0; unavailable items are hidden from lists and flagged in details |
+| Promotions applied outside their validity | Only active promotions apply; inactive ones are reported as not valid |
+| Discounts stacked against the policy | One promotion at most; PIX only on the list price |
+| Orders shown without verification | Order number + matching e-mail, same message for "wrong e-mail" and "no such order", 3 attempts per session |
+| Information invented | "Not found" answers, honest empty categories, no freight quotes outside the metro area, no live-tracking claims, answer check for Gemini |
+
+Other test groups cover security (injection, data extraction, unauthorized actions), conversation memory, policy
+retrieval and citations, data validation and business rules, and the Gemini tool loop.
+
+**What was validated and what was not**
+
+| Item | Status |
+|---|---|
+| Deterministic agent on synthetic and original data | Validated (tests + generated examples) |
+| Gemini tool loop: SDK types, tool execution, e-mail masking, answer check, fallback | Validated with a scripted fake client |
+| Answers of the real Gemini model | **Not validated** — no API key in the development environment |
+| Colab notebook | Executed end-to-end with `jupyter nbconvert` on Linux, not inside Colab itself |
+| Web interface | Launched and used locally — the screenshot below is a real capture |
+
+![Gradio interface](docs/assets/gradio_ui_catalog.png)
+
+---
+
+## 9. Security and privacy
+
+* **Read-only by design.** No tool can change data, list customers or perform a commercial action, so even a
+  manipulated model cannot do it.
+* **Order access.** Requires the order number **and** the e-mail registered on that order. The same reply is given
+  when the e-mail is wrong and when the order does not exist, and lookups are blocked after 3 failures in a session.
+  This is a prototype safeguard, **not real authentication** (no login or one-time code).
+* **Personal data.** E-mails are replaced by tokens (`<EMAIL_1>`) before any text is sent to Gemini; the order tool
+  resolves the token locally. Logs and traces hide e-mails, phone numbers and CPF-like numbers. Answers never
+  contain customer names, e-mails or phones.
+* **Credentials** are read from environment variables or a `.env` file, which is excluded from Git
+  (`.env.example` documents the variables).
+* **Restricted documents** — the policy manual and the original customer file — are not published.
+
+---
+
+## 10. Assumptions
+
+The challenge asks to document reasonable assumptions where information is missing:
+
+1. **"Available"** means `status = active` **and** `stock > 0`.
+2. **Promotion validity** is `is_active`, because there are no dates in the data.
+3. **Several active promotions on one product**: only the largest applies (promotions are not cumulative).
+4. **Order status** is the last record in the CSV, not live tracking; the agent says so.
+5. **Installment rules**: the detailed §3.1 rules prevail over the summary table in §3.
+6. **"Acima de R$ 500"** (free shipping) means strictly above R$ 500.
+7. **Only "Campo Grande"** is treated as the metro area for shipping; other cities are quoted at checkout.
+8. **Ownership check** for orders: the e-mail registered on the order.
+
+---
+
+## 11. Known limitations and what I would do with more time
+
+**Limitations**
+
+* The real Gemini model was not evaluated (no API key during development): its tool-selection accuracy, latency
+  and cost are unmeasured.
+* The deterministic engine is rule-based. It handles the tested wordings well, but unusual phrasing or typos can be
+  misunderstood; it then falls back to policy search or a polite "out of scope" message rather than guessing.
+* Its prepared answers mirror the current manual; they are checked at start-up, but a deeply rewritten manual would
+  need them reviewed.
+* No promotion dates, no receipt dates, no live stock or carrier tracking (CSV snapshot only).
+* Freight to other cities cannot be quoted.
+* Keyword retrieval may miss synonyms that are not in its list.
+* Sessions live in memory (lost on restart, single server), and the web UI has no rate limiting.
+
+**With more time**
+
+1. Measure the real model on a labelled set of questions (right tool chosen, answer-check failures, latency, cost).
+2. Hybrid retrieval (keywords + embeddings) for a larger policy base.
+3. Real customer authentication (one-time code by e-mail or WhatsApp).
+4. Promotion dates and live stock, order and carrier integrations.
+5. Persistent sessions, rate limiting and monitoring of tool calls.
+6. Hand-off to a human through a ticket instead of only pointing to WhatsApp.
+
+---
+
+## 12. Configuration reference
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `GEMINI_API_KEY` | empty | Enables Gemini; without it the agent runs offline. |
-| `GEMINI_MODEL` | `gemini-2.5-flash` | Any Gemini model with function calling. |
-| `EMPORIO_LLM_MODE` | `auto` | `auto`, `gemini` (fail if no key) or `offline`. |
-| `EMPORIO_MAX_TOOL_ROUNDS` | `5` | Upper bound of function-calling rounds per message. |
+| `GEMINI_API_KEY` | empty | Enables Gemini. Without it the agent runs in deterministic mode. |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Any Gemini model that supports function calling. |
+| `EMPORIO_LLM_MODE` | `auto` | `auto`, `gemini` (fails without a key) or `offline`. |
+| `EMPORIO_MAX_TOOL_ROUNDS` | `5` | Maximum tool-calling rounds per message. |
+| `EMPORIO_DATA_DIR` / `EMPORIO_POLICY_PATH` | auto | Alternative locations for the data and the policy document. |
 
-### Running
+**Other commands**
 
 ```bash
-python run_cli.py                    # interactive chat (type "sair" to exit)
-python run_cli.py --trace -m "Quais violões até R$ 1000?"
-python run_cli.py --offline          # force deterministic mode
-python app.py                        # Gradio on http://127.0.0.1:7860  (--share for a public link, --offline)
-python -m pytest -q                  # tests
-python scripts/run_evaluation.py     # regenerate docs/EVALUATION.md
-python scripts/generate_examples.py  # regenerate examples/ (requires the original files in data/)
-python scripts/build_pdf.py          # regenerate the submission PDF from README.md and docs/
+python scripts/generate_examples.py   # regenerate examples/ (needs the original files in data/)
+python scripts/run_evaluation.py      # regenerate docs/EVALUATION.md
+pip install -r requirements-docs.txt && python -m playwright install chromium
+python scripts/build_pdf.py           # regenerate the documentation PDF in submission/
 ```
 
-### Google Colab
-
-Open [`notebooks/Emporio_AI_Colab.ipynb`](notebooks/Emporio_AI_Colab.ipynb) in Colab
-(*File → Open notebook → GitHub* and paste the repository URL) and choose *Runtime → Run all*. The notebook clones
-the repository, installs the requirements, runs the demo and the tests; optionally it uploads the original files,
-reads `GEMINI_API_KEY` from Colab *Secrets* and launches Gradio with a temporary public link.
-
-### Repository layout
+**Repository layout**
 
 ```text
-app.py · run_cli.py · requirements.txt · .env.example · pytest.ini
-src/emporio_ai/   agent, llm, tools, offline_engine, router, catalog, business_rules, orders, policies, guardrails, ...
-tests/            7 test modules (see §6)
-data/sample/      synthetic CSV fixtures + synthetic policy document (public)
-examples/         5 generated conversations
-docs/             ARCHITECTURE.md, EVALUATION.md, assets/ (diagram, screenshot)
-notebooks/        Emporio_AI_Colab.ipynb
-scripts/          generate_examples.py, run_evaluation.py, build_pdf.py
-submission/       PDF generated from this README and docs/
+run.py · run.bat · run.sh       one-command launcher
+app.py · run_cli.py             web chat (Gradio) and terminal chat
+src/emporio_ai/                 agent, tools, data, rules, retrieval, Gemini integration, safety checks
+tests/                          automated tests (pytest)
+data/sample/                    synthetic sample data (public)
+examples/                       5 example conversations
+docs/                           architecture details, evaluation report, diagram and screenshot
+notebooks/                      Google Colab notebook
+scripts/                        examples, evaluation report and PDF generation
+submission/                     PDF generated from this README and docs/
 ```
+
+More technical detail (module map, tool contracts, decision log): [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ---
 
-## 10. AI-assisted development disclosure
+## 13. Use of AI coding assistants
 
-AI assistants were used openly, as allowed by the challenge:
+The challenge asks which AI tools were used and how. Two assistants were used:
 
-* **ChatGPT (OpenAI)** — used by the candidate in the first iteration of the project (an earlier notebook-based
-  prototype) for brainstorming, drafting code and documentation. That version had the eight failures listed in §6,
-  which motivated this rewrite.
-* **Claude (Anthropic, Claude Opus via the Claude desktop app)** — used for this final version as an engineering
-  assistant under the candidate's direction: auditing the previous prototype and the official materials,
-  implementing the package, tests, Gradio UI, CLI and notebook, generating the examples by running the agent,
-  writing this documentation and the script that builds the submission PDF. Commits carry a `Co-Authored-By: Claude`
-  trailer.
+* **ChatGPT (OpenAI)** — in the first version of the project (a notebook prototype), for brainstorming and
+  drafting code and documentation. That version had the problems listed in §8, which led to this rewrite.
+* **Claude (Anthropic)** — in this final version, as a coding assistant: reviewing the previous prototype against
+  the challenge material, writing and refactoring code, tests, interfaces and documentation, and running the
+  tests and example conversations.
 
-Workflow: the candidate supplied the challenge, data and requirements (including the list of previous failures),
-defined the architectural constraints (Python, Gemini, function calling, RAG, Gradio, Colab, pytest) and the
-privacy rules; the assistant implemented in small commits and validated each step by running tests and real
-conversations. Every result reported here comes from an actual execution; items that could not be executed (hosted
-Gemini, Colab runtime) are marked as not validated. The candidate is responsible for reviewing and defending the
-submission.
+**Workflow.** I defined the requirements, the architecture constraints (Python, Gemini with function calling,
+RAG, Gradio, Colab, pytest), the privacy rules and the list of problems to fix, and directed the work in small
+steps, with each step checked by running the tests and real conversations. All results reported here come from actual
+executions; what could not be executed (the hosted Gemini model, Colab itself) is marked as not validated.
