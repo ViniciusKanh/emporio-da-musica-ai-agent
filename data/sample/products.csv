@@ -1,0 +1,16 @@
+product_id,price_brl,name,category_id,description,stock_quantity,status,specs,created_at
+201,480,Aurora C10 Nylon Natural,5,Violão clássico sintético para iniciantes.,10,active,"{""strings"":""nylon"",""electronics"":""no""}",2024-01-10
+202,690,Aurora F20 Aço Natural,5,Violão folk sintético com cordas de aço.,7,active,"{""strings"":""steel"",""electronics"":""no""}",2024-02-11
+203,1150,Vento VD-50 Dreadnought Natural,5,Violão dreadnought sintético.,4,active,"{""strings"":""steel"",""electronics"":""no""}",2024-03-12
+204,2490,Vento VD-90E Elétrico Aço Sunburst,5,Violão eletroacústico sintético.,3,active,"{""strings"":""steel"",""electronics"":""yes""}",2024-04-13
+205,1390,Sabiá S7 7 Cordas Nylon Natural,5,Violão de 7 cordas sintético.,0,active,"{""strings"":""nylon"",""electronics"":""no""}",2024-05-14
+206,899,Sabiá SX-1 Clássico Nylon Natural,5,Modelo sintético fora de linha.,5,discontinued,"{""strings"":""nylon"",""electronics"":""no""}",2021-06-15
+207,950,Aurora C30 Nylon Cedro,5,Lançamento sintético ainda não disponível.,3,coming_soon,"{""strings"":""nylon"",""electronics"":""no""}",2025-07-16
+208,199.9,Ipê UK-10 Soprano Natural,9,Ukulele soprano sintético.,12,active,"{""strings"":""4"",""electronics"":""no""}",2023-08-17
+209,420,Ipê UK-30 Tenor Mogno,9,Ukulele tenor sintético.,6,active,"{""strings"":""4"",""electronics"":""no""}",2023-09-18
+210,760,Ipê UK-50E Concert Elétrico,9,Ukulele concert eletroacústico sintético.,2,active,"{""strings"":""4"",""electronics"":""yes""}",2023-10-19
+211,3200,Trovão TG-100 Stratos,1,Guitarra elétrica sintética.,5,active,"{""body"":""Alder""}",2023-11-20
+212,5800,Trovão TG-300 Custom,1,Guitarra elétrica sintética topo de linha.,2,active,"{""body"":""Mahogany""}",2024-12-21
+213,2700,Pulso PB-4 Electric Bass,2,Baixo elétrico sintético.,4,active,"{""strings"":""4""}",2024-01-22
+214,4800,Batuque BK-5 Studio,3,Bateria acústica sintética.,2,active,"{""pieces"":""5""}",2024-02-23
+215,1890,Tecla KS-61 Synth,4,Teclado sintetizador sintético.,3,active,"{""keys"":""61""}",2024-03-24

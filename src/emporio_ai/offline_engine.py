@@ -19,6 +19,11 @@ from .tools import ToolBox
 
 MAX_MESSAGE_CHARS = 2000
 MAX_ORDER_ATTEMPTS = 3
+CATEGORY_EN = {"Guitarras": "electric guitars", "Baixos": "basses", "Baterias e Percussão": "drums and percussion",
+               "Teclados e Pianos": "keyboards and pianos", "Violões": "acoustic guitars",
+               "Instrumentos de Sopro (Madeiras)": "woodwind instruments",
+               "Instrumentos de Sopro (Metais)": "brass instruments", "Cordas Orquestrais": "orchestral strings",
+               "Ukuleles": "ukuleles"}
 KNOWN_CITIES = ("Campo Grande", "Dourados", "Três Lagoas", "Corumbá", "Ponta Porã", "São Paulo",
                 "Rio de Janeiro", "Cuiabá", "Brasília", "Curitiba", "Goiânia")
 
@@ -229,7 +234,8 @@ class OfflineEngine:
             "coming_soon": _t(lang, "🕒 Em breve — ainda não está disponível para venda",
                               "🕒 Coming soon — not yet available for purchase"),
         }.get(avail, _t(lang, "Indisponível", "Unavailable"))
-        lines = [f"**{view['name']}** ({view['category']})", status]
+        category = CATEGORY_EN.get(view["category"], view["category"]) if lang == "en" else view["category"]
+        lines = [f"**{view['name']}** ({category})", status]
         if avail in {"available", "out_of_stock"}:
             lines += self._price_lines(view, lang)
         return "\n".join(f"- {line}" if i else line for i, line in enumerate(lines))
@@ -278,13 +284,10 @@ class OfflineEngine:
         brand = None
         if route.product_by_brand and route.product_ids:
             brand = self.tools.catalog.products.at[route.product_ids[0], "brand"]
+        # Subtype filters (nylon/steel/electro-acoustic/7-string...) only make sense for string instruments
         keywords = " ".join(SPEC_KEYWORD[k] for k in route.spec_keywords if k in SPEC_KEYWORD) or None
-        if keywords and '"electronics"' in keywords:
-            keywords = keywords.replace('"electronics":"yes"', "").strip() or None
-            electric_only = True
-        else:
-            electric_only = False
-        cat_arg = self.tools.catalog.category_name(categories[0]) if len(categories) == 1 else None
+        if keywords and categories and not set(categories) & {2, 5, 9}:
+            keywords = None
         results: list[dict] = []
         hidden = 0
         total = 0
@@ -296,14 +299,14 @@ class OfflineEngine:
                 "brand": brand, "sort": route.sort, "limit": 10})
             if "error" in res:
                 continue
-            prods = res["products"]
-            if electric_only:
-                prods = [p for p in prods if p["specs"].get("electronics") == "yes"]
-            results += prods
+            results += res["products"]
             hidden += res["unavailable_matches_hidden"]
             total += res["total_matches"]
             srcs = res["sources"]
-        cat_label = ", ".join(self.tools.catalog.category_name(c) for c in categories) or _t(lang, "produtos", "products")
+        names = [self.tools.catalog.category_name(c) for c in categories]
+        if lang == "en":
+            names = [CATEGORY_EN.get(n, n) for n in names]
+        cat_label = ", ".join(names) or _t(lang, "produtos", "products")
         budget = self._budget_label(route, lang)
         if not results:
             # Distinguish "category empty in the snapshot" from "nothing within budget".
@@ -494,7 +497,7 @@ class OfflineEngine:
                   "- **Boleto** (bank slip, clears in up to 3 business days)\n"
                   f"- Combining payment methods (e.g. PIX + card) is allowed for purchases above "
                   f"{brl(r.combined_payment_min_total)}.")
-        if self.kb.missing_rule_anchors:
+        if self.kb.missing_rule_anchors or not self._doc_says("boleto", "debito", "3 dias uteis"):
             body = self._excerpt(sec3, lang) + ("\n\n" + self._excerpt(sec31, lang) if sec31 else "")
         srcs = [s.citation() for s in (sec3, sec31) if s]
         if re.search(r"(promo|desconto|discount)", route.norm):
@@ -513,6 +516,12 @@ class OfflineEngine:
         head = _t(lang, f"Trecho do manual — {chunk.citation()}:", f"Policy excerpt (Portuguese) — {chunk.citation()}:")
         return head + "\n" + "\n".join(f"> {l.lstrip('- ').strip()}" for l in lines)
 
+    def _doc_says(self, *phrases: str) -> bool:
+        """Curated wording is only used when the retrieved manual actually contains these facts."""
+        if not hasattr(self, "_corpus"):
+            self._corpus = normalize(" ".join(c.text for c in self.kb.chunks))
+        return all(normalize(p) in self._corpus for p in phrases)
+
     def _rule_ok(self, *fields: str) -> bool:
         return not set(fields) & set(self.kb.missing_rule_anchors)
 
@@ -523,7 +532,16 @@ class OfflineEngine:
         preference = self.kb.find_section("Preferência")
         not_eligible = self.kb.find_section("Não Elegíveis")
         parts = []
-        if self._rule_ok("regret_days"):
+        ineligible = re.search(r"(boquilha|personaliz|setup|regulagem|venda final|mouthpiece|custom)", route.norm)
+        if ineligible and not_eligible:
+            parts.append(_t(lang,
+                "Atenção: pelo manual, alguns itens **não são elegíveis para troca**: instrumentos personalizados ou com "
+                "ajustes sob encomenda (setup, regulagem especial), produtos de liquidação com aviso de \"venda final\" e "
+                "**boquilhas de instrumentos de sopro**, por questões de higiene.",
+                "Please note: according to the manual some items **are not eligible for exchange**: customised instruments "
+                "or instruments with made-to-order adjustments (setup), clearance items marked \"final sale\", and "
+                "**wind-instrument mouthpieces**, for hygiene reasons."))
+        elif self._rule_ok("regret_days"):
             parts.append(_t(lang,
                 f"Pode sim, se a compra foi **online**: pelo direito de arrependimento você tem até **{r.regret_days} dias corridos "
                 f"após o recebimento** para pedir a devolução, sem precisar justificar. O produto deve estar na embalagem "
@@ -533,21 +551,23 @@ class OfflineEngine:
                 f"after receiving** the product to return it, no justification needed. It must be in the original packaging, "
                 f"unused, with all accessories and manuals. Return shipping is paid by the store and the refund goes back to "
                 f"the original payment method within {r.refund_business_days} business days."))
-        if re.search(r"\b(troca|trocar|exchange|swap|cor|modelo|tamanho|color|size)\b", route.norm) and preference:
+        if re.search(r"\b(troca|trocar|exchange|swap|cor|modelo|tamanho|color|size)\b", route.norm) and preference \
+                and not ineligible and self._rule_ok("regret_days"):
             parts.append(_t(lang,
                 f"Para **troca por preferência** (cor, modelo, tamanho) o prazo é de {r.preference_exchange_days} dias, "
                 "com o produto em perfeito estado, na embalagem original e sujeito à disponibilidade.",
                 f"For an **exchange by preference** (color, model, size) the window is {r.preference_exchange_days} days, "
                 "product in perfect condition and original packaging, subject to availability."))
-        if re.search(r"(boquilha|personaliz|setup|regulagem|venda final|liquidacao|mouthpiece|custom)", route.norm) \
-                and not_eligible:
+        if ineligible and not_eligible:
             parts.append(self._excerpt(not_eligible, lang))
-        parts.append(self._excerpt(regret, lang, max_lines=4))
-        srcs = [c.citation() for c in (regret,) if c]
-        if preference and re.search(r"\b(troca|trocar|exchange|swap|cor|modelo|tamanho|color|size)\b", route.norm):
+        else:
+            parts.append(self._excerpt(regret, lang, max_lines=4))
+        srcs = [c.citation() for c in ((not_eligible,) if ineligible else (regret,)) if c]
+        if preference and not ineligible and re.search(r"\b(troca|trocar|exchange|swap|cor|modelo|tamanho|color|size)\b", route.norm):
             srcs.append(preference.citation())
         needs_human = False
-        if state.verified_order:
+        refers_to_order = route.order_id is not None or re.search(r"\b(pedido|order|compra|purchase)\b", route.norm)
+        if state.verified_order and refers_to_order and not ineligible:
             order = state.verified_order_view or {}
             status = order.get("status")
             if status in {"delivered", "shipped"}:
@@ -596,7 +616,8 @@ class OfflineEngine:
             f"**{r.defect_exchange_days} calendar days of purchase**; (2) a **{r.legal_warranty_days}-day legal warranty** "
             f"(Brazilian Consumer Code) against manufacturing defects, counted from **receipt**; (3) after that, the "
             f"**manufacturer's warranty** (usually 6 months to 2 years, per the product certificate), and the store can "
-            f"mediate the process.")] if self._rule_ok("defect_exchange_days", "legal_warranty_days") else []
+            f"mediate the process.")] if self._rule_ok("defect_exchange_days", "legal_warranty_days") \
+            and self._doc_says("6 meses a 2 anos") else []
         if days is not None:
             if days <= r.defect_exchange_days:
                 parts.append(_t(lang, f"Com {days} dias, você ainda está dentro do prazo de troca por defeito na loja "
@@ -616,7 +637,9 @@ class OfflineEngine:
                 parts.append(_t(lang, f"Com {days} dias, o caminho costuma ser a garantia do fabricante; a loja pode intermediar.",
                                 f"At {days} days the usual path is the manufacturer's warranty; the store can mediate."))
         parts.append(self._excerpt(defect, lang, max_lines=3))
-        if excluded:
+        if not parts:
+            parts += [self._excerpt(legal, lang, max_lines=3)]
+        if excluded and self._doc_says("desgaste natural"):
             parts.append(_t(lang, "A garantia não cobre desgaste natural (cordas, trastes, feltros), mau uso, quedas, "
                                   "condições climáticas extremas, reparos por terceiros e danos apenas estéticos.",
                             "Warranty does not cover natural wear (strings, frets, felts), misuse, drops, extreme climate, "
@@ -668,7 +691,7 @@ class OfflineEngine:
             body += "\n" + _t(lang, "- O código de rastreamento é enviado por e-mail e WhatsApp assim que o pedido é despachado.",
                               "- The tracking code is sent by e-mail and WhatsApp as soon as the order ships.")
             srcs.append(sec53.citation())
-        if self.kb.missing_rule_anchors:
+        if self.kb.missing_rule_anchors or not self._doc_says("PAC", "SEDEX", "Jadlog", "motoboy"):
             body = self._excerpt(sec51, lang) + "\n\n" + self._excerpt(sec52, lang)
         return body, srcs, False
 
@@ -689,8 +712,9 @@ class OfflineEngine:
         note = _t(lang, "O WhatsApp segue o mesmo horário. Em datas especiais (Black Friday, Aniversário da Loja, Natal) "
                         "o horário pode ser estendido.",
                   "WhatsApp support follows the same hours. On special dates (Black Friday, store anniversary, "
-                  "Christmas) hours may be extended.")
-        return _t(lang, "Nosso horário de funcionamento:", "Our opening hours:") + "\n" + "\n".join(lines) + "\n" + note, \
+                  "Christmas) hours may be extended.") if self._doc_says("datas especiais", "mesmo horario") else ""
+        return _t(lang, "Nosso horário de funcionamento:", "Our opening hours:") + "\n" + "\n".join(lines) + \
+            ("\n" + note if note else ""), \
             [sec.citation()] if sec else info["sources"], False
 
     def _contact_section(self, route: Route, state: ConversationState):
@@ -712,6 +736,8 @@ class OfflineEngine:
 
     def _privacy_section(self, route: Route, state: ConversationState):
         sec = self.kb.find_section("Privacidade")
+        if not self._doc_says("LGPD", "exclusao de seus dados"):
+            return self._excerpt(sec, route.lang), [sec.citation()] if sec else [], False
         lead = _t(route.lang,
                   "Seguimos a LGPD: seus dados (nome, telefone, e-mail, endereço) são usados só para processar e entregar "
                   "pedidos, informar status/rastreamento, enviar promoções com seu consentimento e cumprir obrigações legais. "

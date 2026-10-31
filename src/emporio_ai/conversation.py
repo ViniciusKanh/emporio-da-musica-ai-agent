@@ -21,3 +21,4 @@ class ConversationState:
     failed_order_attempts: int = 0
     turns: int = 0
     llm_history: list = field(default_factory=list, repr=False)  # provider-specific message objects
+    pii_vault: object | None = field(default=None, repr=False)  # e-mail <-> token map for the LLM path

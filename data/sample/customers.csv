@@ -1,0 +1,5 @@
+customer_id,name,phone,email,city
+1,Cliente Sintético Um,(00) 90000-0001,cliente.um@example.com,Campo Grande
+2,Cliente Sintético Dois,(00) 90000-0002,cliente.dois@example.com,Dourados
+3,Cliente Sintético Três,(00) 90000-0003,cliente.tres@example.org,Campo Grande
+4,Cliente Sintético Quatro,(00) 90000-0004,cliente.quatro@example.org,Corumbá

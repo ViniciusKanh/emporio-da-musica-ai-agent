@@ -1,0 +1,7 @@
+promotion_id,product_id,discount_percent,description,is_active
+1,203,10,Oferta Especial,1
+2,204,15,Aniversário da Loja,1
+3,204,5,Desconto Exclusivo,1
+4,209,20,Black Friday,0
+5,201,12,Queima de Estoque,0
+6,205,10,Oferta Especial,1

@@ -1,0 +1,10 @@
+category_id,name,description
+1,Guitarras,Guitarras elétricas (dados sintéticos)
+2,Baixos,Baixos elétricos (dados sintéticos)
+3,Baterias e Percussão,Baterias e percussão (dados sintéticos)
+4,Teclados e Pianos,Teclados e pianos digitais (dados sintéticos)
+5,Violões,"Violões clássicos, folk e eletroacústicos (dados sintéticos)"
+6,Instrumentos de Sopro (Madeiras),Flautas e saxofones (dados sintéticos)
+7,Instrumentos de Sopro (Metais),Trompetes e trombones (dados sintéticos)
+8,Cordas Orquestrais,Violinos e violoncelos (dados sintéticos)
+9,Ukuleles,"Ukuleles soprano, concert e tenor (dados sintéticos)"

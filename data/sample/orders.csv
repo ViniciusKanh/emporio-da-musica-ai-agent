@@ -1,0 +1,6 @@
+order_id,customer_id,order_date,status,total_brl,payment_method,tracking_code,estimated_delivery,notes
+1001,1,2025-11-03,delivered,480,pix,BRSY0000001BR,2025-11-07,
+1002,2,2026-01-15,shipped,199.9,credit_3x,BRSY0000002BR,2026-01-25,
+1003,3,2026-02-01,pending,3200,credit_12x,,,
+1004,4,2026-02-10,cancelled,690,boleto,,,Pagamento não confirmado dentro do prazo (sintético)
+1005,1,2026-02-20,confirmed,2116.5,credit_10x,,,

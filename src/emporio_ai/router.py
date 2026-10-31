@@ -79,8 +79,10 @@ OUT_OF_SCOPE_HINTS = [
 ]
 
 SUBTYPE_KEYWORDS = {
-    "nylon": ("nylon",), "aco": ("steel", "aco", "aço"), "eletrico": ("eletrico", "eletroacustico", "electro-acoustic",
-                                                                       "acoustic-electric", "acoustic electric", "with pickup"),
+    "nylon": ("nylon",), "aco": ("steel", "aco", "aço"), "eletrico": ("eletrico", "eletrica", "eletroacustico", "eletroacustica",
+                                                                       "electro-acoustic", "electroacoustic", "acoustic-electric",
+                                                                       "acoustic electric", "electric acoustic", "with pickup",
+                                                                       "com captador"),
     "7 cordas": ("7 cordas", "sete cordas", "7-string", "seven string", "7 string"),
     "soprano": ("soprano",), "concert": ("concert", "concerto"), "tenor": ("tenor",),
     "baritono": ("baritono", "baritone"),
