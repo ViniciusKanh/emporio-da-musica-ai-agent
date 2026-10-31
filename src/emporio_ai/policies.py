@@ -35,7 +35,7 @@ SYNONYMS: dict[str, tuple[str, ...]] = {
     "return": ("devolucao", "arrependimento"), "returns": ("devolucao", "arrependimento"),
     "refund": ("reembolso", "devolucao"), "regret": ("arrependimento",),
     "exchange": ("troca",), "trocar": ("troca",), "swap": ("troca",),
-    "defeito": ("defeito", "garantia"), "defect": ("defeito", "garantia"), "defective": ("defeito", "garantia"),
+    "defeito": ("defeito", "troca"), "defect": ("defeito", "garantia"), "defective": ("defeito", "garantia"),
     "broken": ("defeito", "garantia"), "quebrado": ("defeito", "garantia"), "estragado": ("defeito",),
     "warranty": ("garantia",), "guarantee": ("garantia",),
     "horario": ("horario", "funcionamento"), "abre": ("horario", "funcionamento"), "abrem": ("horario",),

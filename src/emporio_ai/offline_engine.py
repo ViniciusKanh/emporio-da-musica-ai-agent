@@ -684,15 +684,20 @@ class OfflineEngine:
                   "- **Other cities:** Correios (PAC 5-12 business days, SEDEX 2-5) or Jadlog (3-8), tracking and insurance "
                   "included. The price depends on destination CEP, weight and size, so I can't quote it here. Large "
                   "instruments (drum kits, digital pianos, double basses) may need a special freight quote.")
+        curated = not self.kb.missing_rule_anchors and self._doc_says("PAC", "SEDEX", "Jadlog", "motoboy")
+        if not curated:
+            body = self._excerpt(sec51, lang) + "\n\n" + self._excerpt(sec52, lang)
         if city and normalize(city) != "campo grande":
-            body = _t(lang, f"Para {city}, o envio é feito pelos Correios ou Jadlog e o frete é calculado no fechamento do pedido.",
-                      f"For {city}, we ship via Correios or Jadlog and the freight is calculated at checkout.") + "\n" + body
+            carriers = _t(lang, "pelos Correios ou Jadlog", "via Correios or Jadlog") if curated else \
+                _t(lang, "por transportadora", "by carrier")
+            body = _t(lang, f"Para {city}, o envio é feito {carriers} e o frete é calculado pelo CEP no fechamento do pedido "
+                            "— não consigo cotar o valor por aqui.",
+                      f"For {city}, we ship {carriers} and the freight is calculated from the CEP at checkout — "
+                      "I can't quote it here.") + "\n" + body
         if re.search(r"rastre|tracking|codigo", route.norm) and sec53:
             body += "\n" + _t(lang, "- O código de rastreamento é enviado por e-mail e WhatsApp assim que o pedido é despachado.",
                               "- The tracking code is sent by e-mail and WhatsApp as soon as the order ships.")
             srcs.append(sec53.citation())
-        if self.kb.missing_rule_anchors or not self._doc_says("PAC", "SEDEX", "Jadlog", "motoboy"):
-            body = self._excerpt(sec51, lang) + "\n\n" + self._excerpt(sec52, lang)
         return body, srcs, False
 
     def _hours_section(self, route: Route, state: ConversationState):
