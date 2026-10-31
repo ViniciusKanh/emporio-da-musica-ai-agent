@@ -226,13 +226,13 @@ after the model are enforced in code (§9).
 ### Interface and conversation history
 
 * **Gradio** web interface with three tabs:
-  * **Atendimento** — the chat, one-click quick actions, a "store open/closed now" badge and an **evidence panel**
-    that shows, for every answer, the mode, the detected intents, the tools called and the sources (useful for an
-    evaluator to audit each answer);
-  * **Catálogo** — a filterable product table (category, maximum price, availability, search) and the active
-    promotions, computed with the same rules the agent uses;
-  * **Como funciona** — the architecture diagram, the data-quality findings and the contradictions found in the
-    manual, loaded live from the data.
+    * **Atendimento** — the chat, one-click quick actions, a "store open/closed now" badge and an **evidence panel**
+      that shows, for every answer, the mode, the detected intents, the tools called and the sources (useful for an
+      evaluator to audit each answer);
+    * **Catálogo** — a filterable product table (category, maximum price, availability, search) and the active
+      promotions, computed with the same rules the agent uses;
+    * **Como funciona** — the architecture diagram, the data-quality findings and the contradictions found in the
+      manual, loaded live from the data.
 * **CLI** (`run_cli.py --trace`) and a **Colab notebook** for quick reproduction.
 * History is kept **in memory per session**: enough for follow-up questions, without persisting personal data.
 
@@ -301,8 +301,8 @@ deterministic mode). Portuguese messages have an English translation note; custo
 
 | File | What it shows |
 |---|---|
-| [`01_catalog_budget_search.md`](examples/01_catalog_budget_search.md) | *"Quais opções de violões disponíveis custando até R$1000?"*, a follow-up budget, a nylon filter and an out-of-stock product with alternatives |
-| [`02_price_promotions_payment.md`](examples/02_price_promotions_payment.md) | *"Quanto custa o Takamine GD20?"*, PIX price, a promotion that does not stack with PIX, an expired campaign, active promotions |
+| [`01_catalog_budget_search.md`](examples/01_catalog_budget_search.md) | *"Quais opções de violões disponíveis custando até R$1000?"*, a follow-up budget, a nylon filter, an out-of-stock product with alternatives, a beginner recommendation and a side-by-side comparison |
+| [`02_price_promotions_payment.md`](examples/02_price_promotions_payment.md) | *"Quanto custa o Takamine GD20?"*, PIX price, a promotion that does not stack with PIX, an expired campaign, active promotions, a misspelled model and an inconsistent catalog record |
 | [`03_returns_warranty_policies.md`](examples/03_returns_warranty_policies.md) | *"Me arrependi da minha compra, posso devolver meu pedido?"* with citation, a non-returnable item, a 45-day defect referred to the team |
 | [`04_order_status_privacy.md`](examples/04_order_status_privacy.md) | **Non-trivial:** order check over two messages, recorded status vs. live tracking, return request on a verified order, wrong e-mail |
 | [`05_english_scope_and_safety.md`](examples/05_english_scope_and_safety.md) | English compound question, accessories, out-of-scope question, prompt injection, cancellation request |
