@@ -55,6 +55,7 @@ STATUS_LABELS = {
 class ProductMatch:
     product_ids: tuple[int, ...]
     exact: bool  # a single product was identified unambiguously
+    by_brand: bool = False  # matched only by brand name (model not recognised)
 
 
 def availability_of(status: str, stock: int) -> str:
@@ -86,7 +87,9 @@ class CatalogService:
         ]
         frame["brand"] = frame["name"].map(self._brand_of)
         self.products = frame.set_index("product_id", drop=False).sort_index()
+        self.products.index.name = None
         self.categories = categories.set_index("category_id", drop=False)
+        self.categories.index.name = None
         self._index = {pid: self._product_tokens(name) for pid, name in self.products["name"].items()}
         self.brands = {normalize(b) for b in self.products["brand"]}
 
@@ -145,7 +148,7 @@ class CatalogService:
             best = tuple(sorted(pid for pid, s in scores.items() if s == top))
             return ProductMatch(best, exact=len(best) == 1)
         brand_ids = tuple(int(pid) for pid, b in self.products["brand"].items() if compact(b) in query)
-        return ProductMatch(brand_ids, exact=len(brand_ids) == 1)
+        return ProductMatch(brand_ids, exact=len(brand_ids) == 1, by_brand=bool(brand_ids))
 
     @staticmethod
     def detect_categories(text: str) -> list[int]:
