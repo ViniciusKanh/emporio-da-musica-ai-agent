@@ -114,6 +114,14 @@ def fix_links(md_text: str, base: Path) -> str:
 
     md_text = re.sub(r"!\[([^\]]*)\]\(([^)\s]+)\)", image, md_text)
 
+    def html_image(match: re.Match) -> str:  # raw <img src="relative"> used for the logo blocks
+        target = match.group(2)
+        if target.startswith(("http://", "https://", "file:")):
+            return match.group(0)
+        return f'{match.group(1)}{(base / target).resolve().as_uri()}{match.group(3)}'
+
+    md_text = re.sub(r'(<img [^>]*src=")([^"]+)(")', html_image, md_text)
+
     def link(match: re.Match) -> str:
         text, target = match.group(1), match.group(2)
         if target.startswith(("http://", "https://", "mailto:", "#")):
