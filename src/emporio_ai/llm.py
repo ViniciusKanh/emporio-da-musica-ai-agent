@@ -165,6 +165,9 @@ def grounding_issues(answer: str, tool_results: list[dict], allowed_numbers: set
 class GeminiAgent:
     """Gemini + manual function-calling loop."""
 
+    name = "gemini"
+    label = "Gemini"
+
     def __init__(self, api_key: str, model: str, max_tool_rounds: int = 5, client: Any = None,
                  temperature: float = 0.2):
         from google import genai
@@ -214,28 +217,37 @@ class GeminiAgent:
         text = (response.text or "").strip() if response is not None else ""
         if not text:
             raise RuntimeError("empty answer from model")
-        info = tools.policies.store_info
-        allowed_contacts = {e.lower() for e in info.emails} | {re.sub(r"\D", "", n) for n, _ in info.phones}
-        rules = tools.rules
-        allowed_numbers = {rules.metro_free_shipping_above, rules.metro_flat_shipping_fee,
-                           rules.combined_payment_min_total, 50.0, 80.0, 100.0}
-        policy_text = " ".join(c.text for c in tools.policies.chunks)
-        allowed_numbers |= set(extract_money_values(policy_text))
-        issues = grounding_issues(text, results, allowed_numbers, allowed_contacts)
-        if not results and extract_money_values(text):
-            issues.append("prices stated without any tool call")
+        issues = assess_answer(text, results, tools)
 
         # Persist a compact history (user turn + final answer) for conversational continuity.
         state.llm_history = (history + [contents[len(history)],
                                         types.Content(role="model", parts=[types.Part.from_text(text=text)])]
                              )[-MAX_HISTORY_CONTENTS:]
-        names = [c.name for c in tools.trace]
-        intents = sorted({_INTENT_BY_TOOL.get(n, n) for n in names}) or ["conversation"]
-        sources = list(dict.fromkeys(s for c in tools.trace for s in c.sources))
-        handoff = bool(re.search(r"(whatsapp|atendente|equipe|human|team)", text, re.I)) and \
-            any(n in names for n in ("get_store_info", "search_store_policies"))
-        logger.info("gemini tools=%s grounded=%s", json.dumps(names), not issues)
-        return LLMResult(text, not issues, issues, intents, sources, handoff)
+        logger.info("gemini tools=%s grounded=%s", json.dumps([c.name for c in tools.trace]), not issues)
+        return build_result(text, issues, tools)
+
+
+def assess_answer(text: str, results: list[dict], tools: ToolBox) -> list[str]:
+    """Provider-independent grounding check of a final LLM answer."""
+    info = tools.policies.store_info
+    allowed_contacts = {e.lower() for e in info.emails} | {re.sub(r"\D", "", n) for n, _ in info.phones}
+    rules = tools.rules
+    allowed_numbers = {rules.metro_free_shipping_above, rules.metro_flat_shipping_fee,
+                       rules.combined_payment_min_total, 50.0, 80.0, 100.0}
+    allowed_numbers |= set(extract_money_values(" ".join(c.text for c in tools.policies.chunks)))
+    issues = grounding_issues(text, results, allowed_numbers, allowed_contacts)
+    if not results and extract_money_values(text):
+        issues.append("prices stated without any tool call")
+    return issues
+
+
+def build_result(text: str, issues: list[str], tools: ToolBox) -> LLMResult:
+    names = [c.name for c in tools.trace]
+    intents = sorted({_INTENT_BY_TOOL.get(n, n) for n in names}) or ["conversation"]
+    sources = list(dict.fromkeys(s for c in tools.trace for s in c.sources))
+    handoff = bool(re.search(r"(whatsapp|atendente|equipe|human|team)", text, re.I)) and \
+        any(n in names for n in ("get_store_info", "search_store_policies"))
+    return LLMResult(text, not issues, issues, intents, sources, handoff)
 
 
 _INTENT_BY_TOOL = {

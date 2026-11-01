@@ -58,6 +58,7 @@ class ToolBox:
         self.rules = rules or catalog.rules
         self.trace: list[ToolCall] = []
         self.email_resolver: Callable[[str], str] = lambda value: value
+        self.clock: Callable[[], Any] | None = None
         self.registry: dict[str, Callable[..., dict]] = {
             "search_products": self.search_products,
             "get_product_details": self.get_product_details,
@@ -260,7 +261,7 @@ class ToolBox:
         from .store_hours import describe, open_status
 
         info = self.policies.store_info
-        status = open_status(info.hours)
+        status = open_status(info.hours, self.clock() if self.clock else None)
         return {"address": info.address, "phones": [{"number": n, "type": t} for n, t in info.phones],
                 "open_now": None if status is None else {"is_open": status.is_open, "summary_pt": describe(status, "pt"),
                                                          "summary_en": describe(status, "en"),

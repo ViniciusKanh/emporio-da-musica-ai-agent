@@ -34,12 +34,13 @@ MAX_SESSIONS = 500
 @dataclass
 class AgentResponse:
     text: str
-    mode: str  # "gemini" | "offline"
+    mode: str  # "gemini" | "local" | "offline"
     intents: list[str] = field(default_factory=list)
     tool_calls: list[dict] = field(default_factory=list)
     sources: list[str] = field(default_factory=list)
     handoff: bool = False
     warnings: list[str] = field(default_factory=list)
+    handoff_summary: str | None = None  # case note for the human team (not shown to the customer)
 
 
 class EmporioAgent:
@@ -53,6 +54,7 @@ class EmporioAgent:
         self.policies = PolicyKnowledgeBase(self.settings.policy_path, self.rules)
         self.router = IntentRouter(self.catalog)
         self._sessions: dict[str, ConversationState] = {}
+        self.clock = None  # optional callable returning the current store time (tests / reproducible examples)
         self._lock = threading.Lock()
         self.llm = llm if llm is not None else self._build_llm()
         if self.policies.missing_rule_anchors:
@@ -64,21 +66,35 @@ class EmporioAgent:
         return cls(Settings.from_env(data_dir=data_dir, policy_path=policy_path, llm_mode=llm_mode), llm=llm)
 
     def _build_llm(self):
-        mode = self.settings.llm_mode
-        if mode == "offline":
+        """Pick the LLM provider. Order in 'auto': Gemini (if a key is set), then a local/OpenAI-compatible
+        endpoint (if LOCAL_LLM_BASE_URL is set), otherwise the deterministic engine only."""
+        s = self.settings
+        if s.llm_mode == "offline":
             return None
-        if not self.settings.gemini_api_key:
-            if mode == "gemini":
-                raise RuntimeError("EMPORIO_LLM_MODE=gemini but GEMINI_API_KEY is not set")
-            return None
-        from .llm import GeminiAgent  # optional dependency
+        if s.llm_mode in {"auto", "gemini"} and s.gemini_api_key:
+            from .llm import GeminiAgent  # optional dependency
 
-        return GeminiAgent(api_key=self.settings.gemini_api_key, model=self.settings.gemini_model,
-                           max_tool_rounds=self.settings.max_tool_rounds)
+            return GeminiAgent(api_key=s.gemini_api_key, model=s.gemini_model, max_tool_rounds=s.max_tool_rounds)
+        if s.llm_mode == "gemini":
+            raise RuntimeError("EMPORIO_LLM_MODE=gemini but GEMINI_API_KEY is not set")
+        if s.local_base_url and s.llm_mode in {"auto", "local"}:
+            from .llm_openai import OpenAICompatibleAgent
+
+            return OpenAICompatibleAgent(base_url=s.local_base_url, model=s.local_model, api_key=s.local_api_key,
+                                         max_tool_rounds=s.max_tool_rounds, timeout=s.local_timeout)
+        if s.llm_mode == "local":
+            raise RuntimeError("EMPORIO_LLM_MODE=local but LOCAL_LLM_BASE_URL is not set")
+        return None
 
     @property
     def mode(self) -> str:
-        return "gemini" if self.llm is not None else "offline"
+        return getattr(self.llm, "name", "gemini") if self.llm is not None else "offline"
+
+    @property
+    def model_label(self) -> str:
+        if self.llm is None:
+            return "Deterministic engine (no LLM)"
+        return f"{getattr(self.llm, 'label', 'Gemini')} · {getattr(self.llm, 'model', '')}"
 
     # ------------------------------------------------------------ sessions
     def session(self, session_id: str = "default") -> ConversationState:
@@ -103,6 +119,8 @@ class EmporioAgent:
         logger.info("session=%s turn=%d message=%s", session_id, state.turns, redact(message or "")[:200])
         tools = self._toolbox()
         engine = OfflineEngine(tools, self.router, self.rules)
+        if self.clock is not None:
+            engine.clock = tools.clock = self.clock
         warnings: list[str] = []
 
         guard = inspect_message(message or "")
@@ -110,7 +128,7 @@ class EmporioAgent:
             try:
                 result = self.llm.respond(message, state, tools)
                 if result.grounded:
-                    return AgentResponse(result.text, "gemini", result.intents,
+                    return AgentResponse(result.text, self.mode, result.intents,
                                          [vars(c) for c in tools.trace], result.sources, result.handoff)
                 warnings.append("LLM answer failed the grounding check; deterministic answer returned instead")
                 logger.warning("grounding check failed: %s", result.grounding_issues)
@@ -120,4 +138,4 @@ class EmporioAgent:
             tools.reset_trace()
         offline = engine.respond(message, state)
         return AgentResponse(offline.text, "offline", offline.intents, [vars(c) for c in tools.trace],
-                             offline.sources, offline.handoff, warnings)
+                             offline.sources, offline.handoff, warnings, offline.handoff_summary)

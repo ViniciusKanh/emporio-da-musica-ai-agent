@@ -53,6 +53,7 @@ class EngineResult:
     intents: list[str]
     sources: list[str] = field(default_factory=list)
     handoff: bool = False
+    handoff_summary: str | None = None
 
 
 def _t(lang: str, pt: str, en: str) -> str:
@@ -171,8 +172,28 @@ class OfflineEngine:
         if handled or guard.flagged or guard.action_request:
             sections.append(_t(lang, "Posso ajudar em mais alguma coisa?", "Is there anything else I can help with?"))
         self._remember(route, state)
-        return EngineResult("\n\n".join(s for s in sections if s), list(dict.fromkeys(intents)) or ["unknown"],
-                            list(dict.fromkeys(sources)), handoff)
+        final_intents = list(dict.fromkeys(intents)) or ["unknown"]
+        summary = self._handoff_summary(route, state, final_intents) if handoff else None
+        return EngineResult("\n\n".join(s for s in sections if s), final_intents,
+                            list(dict.fromkeys(sources)), handoff, summary)
+
+    def _handoff_summary(self, route: Route, state: ConversationState, intents: list[str]) -> str:
+        """Short case note for the human team (manual §7.3: register and forward). Shown to staff, not sent anywhere."""
+        from .guardrails import redact
+
+        products = ", ".join(self.tools.catalog.products.at[p, "name"] for p in (route.multi_ids or route.product_ids)[:3])
+        order = state.verified_order_view or {}
+        parts = [f"Motivo: {', '.join(i for i in intents if i not in {'price', 'availability'})}",
+                 f"Idioma: {'inglês' if route.lang == 'en' else 'português'}"]
+        if products:
+            parts.append(f"Produto(s): {products}")
+        if order:
+            parts.append(f"Pedido verificado: #{order.get('order_id')} ({order.get('status_label')})")
+        elif route.order_id:
+            parts.append(f"Pedido citado (não verificado): #{route.order_id}")
+        parts.append(f"Mensagem do cliente: \"{redact(route.text)[:240]}\"")
+        parts.append(f"Prazo de retorno para reclamações: {self.rules.complaint_reply_hours} horas úteis (§7.3)")
+        return "\n".join(parts)
 
     # ========================================================== context
     def _resolve_context(self, route: Route, state: ConversationState) -> None:
@@ -559,6 +580,22 @@ class OfflineEngine:
         return head + "\n" + "\n".join(lines), ["products.csv", "categories.csv"], False
 
     # ======================================================= promotions
+    def _campaign_calendar(self, name: str, body: str, lang: str, sources: list[str]) -> tuple[str, list[str]]:
+        """Add what the manual (§6.1) says about when a campaign usually happens - without promising a discount."""
+        section = self.kb.find_section("Tipos de Promoção")
+        key = normalize(name)
+        line = next((l.lstrip("- ").strip() for l in (section.text.splitlines() if section else [])
+                     if key and key in normalize(l)), None)
+        if not line:
+            return body, sources
+        body += "\n\n" + _t(lang, f"Pelo nosso manual ({section.citation()}): _{line}_ Quando a campanha estiver ativa "
+                                   "no sistema, os preços promocionais aparecem aqui — antes disso não consigo garantir "
+                                   "desconto.",
+                             f"According to our manual ({section.citation()}, in Portuguese): _{line}_ Once the "
+                             "campaign is active in our system, the promotional prices will show up here — until then "
+                             "I can't promise a discount.")
+        return body, sources + [section.citation()]
+
     def _promotion_section(self, route: Route, state: ConversationState):
         lang = route.lang
         if route.product_ids and route.product_exact:
@@ -599,10 +636,11 @@ class OfflineEngine:
             active = [r for r in res["promotions"] if r["active"]]
             name = res["promotions"][0]["campaign"]
             if not active:
-                return _t(lang, f"A campanha **{name}** não está ativa no momento, então os descontos dela não valem agora. "
-                                "Posso te mostrar as promoções que estão vigentes?",
-                          f"The **{name}** campaign is not active right now, so its discounts don't apply. "
-                          "Want to see the promotions that are currently valid?"), res["sources"], False
+                body = _t(lang, f"A campanha **{name}** não está ativa no momento, então os descontos dela não valem agora.",
+                          f"The **{name}** campaign is not active right now, so its discounts don't apply.")
+                body, srcs = self._campaign_calendar(name, body, lang, res["sources"])
+                return body + " " + _t(lang, "Posso te mostrar as promoções que estão vigentes?",
+                                       "Want to see the promotions that are currently valid?"), srcs, False
         res = self.tools.call("list_promotions", {})
         rows = res["active_promotions"]
         if not rows:
@@ -853,6 +891,17 @@ class OfflineEngine:
         total = None
         if route.product_ids and route.product_exact:
             total = self.tools.catalog.product_view(route.product_ids[0])["final_price"]
+        large = route.product_ids and route.product_exact and \
+            self.tools.catalog.products.at[route.product_ids[0], "category_id"] in {3, 4} and \
+            self._doc_says("frete especial")
+        if large and city and normalize(city) != "campo grande":
+            name = self.tools.catalog.products.at[route.product_ids[0], "name"]
+            return _t(lang, f"Para {city}, o **{name}** é um instrumento de grande porte: pelo manual, baterias e pianos "
+                            "digitais podem exigir **frete especial com cotação individual**. Nossa equipe faz essa "
+                            "cotação. " + self._human_contact_line(lang),
+                      f"To {city}, **{name}** is a large instrument: according to the manual, drum kits and digital "
+                      "pianos may require **special freight with an individual quote**, which our team provides. "
+                      + self._human_contact_line(lang)), [sec52.citation()] if sec52 else [], True
         if city and total is not None:
             res = self.tools.call("estimate_shipping", {"order_total": total, "city": city})
             if res.get("fee") is not None:
@@ -969,8 +1018,22 @@ class OfflineEngine:
         whats = [n for n, t in info.phones if "WhatsApp" in t]
         number = whats[-1] if whats else (info.phones[0][0] if info.phones else "")
         hours = "; ".join(f"{d} {h}" for d, h in info.hours[:2])
-        return _t(lang, f"Fale com nossa equipe pelo WhatsApp {number}" + (f" ({hours})." if hours else "."),
+        line = _t(lang, f"Fale com nossa equipe pelo WhatsApp {number}" + (f" ({hours})." if hours else "."),
                   f"Please contact our team on WhatsApp {number}" + (f" ({hours})." if hours else "."))
+        # Manual §7.1: outside business hours the virtual assistant must say when the team will be back.
+        from .store_hours import DAY_NAMES_EN, DAY_NAMES_PT, open_status
+
+        status = open_status(info.hours, self.clock())
+        if status and not status.is_open and status.next_open_day is not None:
+            today = status.next_open_day == status.now.weekday()
+            tomorrow = status.next_open_day == (status.now.weekday() + 1) % 7
+            when_pt = "hoje" if today else ("amanhã" if tomorrow else DAY_NAMES_PT[status.next_open_day])
+            when_en = "today" if today else ("tomorrow" if tomorrow else DAY_NAMES_EN[status.next_open_day])
+            line += _t(lang, f" Agora estamos fora do expediente: a equipe retorna {when_pt} às "
+                             f"{status.next_open_at:%H:%M}.",
+                       f" We are outside business hours right now: the team is back {when_en} at "
+                       f"{status.next_open_at:%H:%M}.")
+        return line
 
     def _human_section(self, route: Route, state: ConversationState):
         sec = self.kb.find_section("Situações Especiais")
@@ -1045,8 +1108,11 @@ class OfflineEngine:
         state.verified_order = (route.order_id, route.email)
         state.verified_order_view = order
         items = ", ".join(f"{i['quantity']}x {i['product']}" for i in order["items"])
-        lines = [_t(lang, f"Encontrei seu pedido **#{order['order_id']}** (feito em {order['order_date']}):",
-                    f"I found your order **#{order['order_id']}** (placed on {order['order_date']}):"),
+        # Manual §7.2: greet the customer by name when available - only the verified customer's own first name.
+        first = self.tools.orders.first_name(route.order_id, route.email)
+        hello = _t(lang, f"Obrigado, {first}! ", f"Thanks, {first}! ") if first else ""
+        lines = [hello + _t(lang, f"Encontrei seu pedido **#{order['order_id']}** (feito em {order['order_date']}):",
+                            f"I found your order **#{order['order_id']}** (placed on {order['order_date']}):"),
                  _t(lang, f"- Status registrado: **{order['status_label']}**", f"- Recorded status: **{order['status_label']}**"),
                  _t(lang, f"- Itens: {items}", f"- Items: {items}"),
                  f"- Total: {brl(order['total_brl'])} ({order['payment_method']})"]
@@ -1062,7 +1128,22 @@ class OfflineEngine:
                               "rastreamento em tempo real da transportadora.",
                         "This comes from the latest record in our system; I don't have access to the carrier's real-time "
                         "tracking.")
-        return "\n".join(lines) + "\n\n" + disclaimer, res["sources"], False
+        overdue = ""
+        late = False
+        if order["status"] == "shipped" and order["estimated_delivery"]:
+            try:
+                late = datetime.fromisoformat(order["estimated_delivery"]).date() < self.clock().date()
+            except ValueError:
+                late = False
+        if late:
+            overdue = "\n\n" + _t(lang,
+                f"⚠️ A previsão de entrega registrada ({order['estimated_delivery']}) já passou e o pedido ainda consta "
+                "como enviado. Vale conferir o rastreio; se não chegou, nossa equipe verifica com a transportadora. "
+                + self._human_contact_line(lang),
+                f"⚠️ The recorded delivery estimate ({order['estimated_delivery']}) has passed and the order is still "
+                "recorded as shipped. Please check the tracking; if it has not arrived, our team will check with the "
+                "carrier. " + self._human_contact_line(lang))
+        return "\n".join(lines) + "\n\n" + disclaimer + overdue, res["sources"], late
 
     # ========================================================= fallbacks
     def _greeting(self, lang: str) -> str:

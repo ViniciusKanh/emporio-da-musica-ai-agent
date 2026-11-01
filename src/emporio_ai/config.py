@@ -16,6 +16,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DATA_DIR = PROJECT_ROOT / "data"
 SAMPLE_DATA_DIR = DEFAULT_DATA_DIR / "sample"
 DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_LOCAL_MODEL = "qwen2.5:7b-instruct"
 
 # Dataset name -> accepted file names (original challenge naming first).
 DATASET_FILES: dict[str, tuple[str, ...]] = {
@@ -72,8 +73,14 @@ class Settings:
     policy_path: Path
     gemini_api_key: str | None = field(default=None, repr=False)  # never printed
     gemini_model: str = DEFAULT_MODEL
-    llm_mode: str = "auto"  # auto | gemini | offline
+    llm_mode: str = "auto"  # auto | gemini | local | offline
     max_tool_rounds: int = 5
+    # OpenAI-compatible endpoint: a local model served by Ollama / LM Studio / llama.cpp (e.g. a model downloaded
+    # from Hugging Face) or any online provider exposing /v1/chat/completions with tool calling.
+    local_base_url: str | None = None
+    local_model: str = DEFAULT_LOCAL_MODEL
+    local_api_key: str | None = field(default=None, repr=False)
+    local_timeout: float = 120.0
 
     @property
     def uses_sample_data(self) -> bool:
@@ -85,8 +92,8 @@ class Settings:
         load_dotenv()
         resolved_dir = resolve_data_dir(data_dir)
         mode = (llm_mode or os.getenv("EMPORIO_LLM_MODE", "auto")).strip().lower()
-        if mode not in {"auto", "gemini", "offline"}:
-            raise ValueError("EMPORIO_LLM_MODE must be one of: auto, gemini, offline")
+        if mode not in {"auto", "gemini", "local", "offline"}:
+            raise ValueError("EMPORIO_LLM_MODE must be one of: auto, gemini, local, offline")
         key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or None
         return cls(
             data_dir=resolved_dir,
@@ -95,4 +102,8 @@ class Settings:
             gemini_model=os.getenv("GEMINI_MODEL", DEFAULT_MODEL),
             llm_mode=mode,
             max_tool_rounds=int(os.getenv("EMPORIO_MAX_TOOL_ROUNDS", "5")),
+            local_base_url=os.getenv("LOCAL_LLM_BASE_URL") or None,
+            local_model=os.getenv("LOCAL_LLM_MODEL", DEFAULT_LOCAL_MODEL),
+            local_api_key=os.getenv("LOCAL_LLM_API_KEY") or None,
+            local_timeout=float(os.getenv("LOCAL_LLM_TIMEOUT", "120")),
         )

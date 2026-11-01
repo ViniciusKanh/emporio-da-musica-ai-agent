@@ -50,6 +50,8 @@ class OrderService:
         self._names = dict(zip(products["product_id"], products["name"]))
         customers = store.table("customers")
         self._email_by_customer = dict(zip(customers["customer_id"], customers["email_norm"]))
+        names = customers["name"] if "name" in customers.columns else [""] * len(customers)
+        self._first_name = {cid: (str(n).split() or [""])[0] for cid, n in zip(customers["customer_id"], names)}
 
     @staticmethod
     def valid_email(email: str) -> bool:
@@ -71,6 +73,13 @@ class OrderService:
         if not expected or expected != email.strip().lower():
             return OrderLookup(False, "not_verified")
         return OrderLookup(True, "ok", self._view(row, lang))
+
+    def first_name(self, order_id: int | str | None, email: str | None) -> str | None:
+        """First name of the verified customer (used only to greet them, never sent to an LLM)."""
+        if order_id is None or not email or not self.lookup(order_id, email).verified:
+            return None
+        customer = int(self._orders.loc[int(str(order_id).lstrip("#")), "customer_id"])
+        return self._first_name.get(customer) or None
 
     def _view(self, row, lang: str) -> dict:
         items = self._items[self._items["order_id"] == row["order_id"]]
