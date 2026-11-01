@@ -1020,7 +1020,8 @@ class OfflineEngine:
         if info["address"]:
             lines.append(_t(lang, f"📍 Endereço: {info['address']}", f"📍 Address: {info['address']}"))
         for p in info["phones"]:
-            lines.append(f"📞 {p['type']}: {p['number']}")
+            kind = p["type"].replace("Telefone", "Phone") if lang == "en" else p["type"]
+            lines.append(f"📞 {kind}: {p['number']}")
         if info["emails"]:
             lines.append(f"✉️ E-mail: {info['emails'][0]}")
         if any(c.startswith("whatsapp") for c in info["conflicts_in_manual"]):

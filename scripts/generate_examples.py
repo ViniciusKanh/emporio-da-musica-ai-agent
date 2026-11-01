@@ -50,12 +50,14 @@ CONVERSATIONS = [
       ("Quanto custa o Korg Synth 1?", "How much is the Korg Synth 1? (its catalog record is inconsistent)")]),
     ("03_returns_warranty_policies.md", "Returns, exchanges and warranty (policy RAG with citations)",
      "Retrieval of the policy manual with section/page citations, a non-eligible item, and an ambiguous warranty case "
-     "(45 days: store exchange window expired, legal warranty may still apply) that is escalated instead of denied.",
+     "(45 days: store exchange window expired, legal warranty may still apply) that is escalated instead of denied, plus "
+     "opening hours, payment methods and the store's address (with the conflicting phone numbers in the manual flagged).",
      [("Me arrependi da minha compra, posso devolver meu pedido?", "I regret my purchase, can I return my order?"),
       ("Posso trocar uma boquilha de saxofone?", "Can I exchange a saxophone mouthpiece?"),
       ("Meu violão deu defeito depois de 45 dias, ainda tenho garantia?",
        "My guitar developed a defect after 45 days, am I still under warranty?"),
-      ("Vocês abrem domingo? E aceitam boleto?", "Are you open on Sunday? And do you accept boleto?")]),
+      ("Vocês abrem domingo? E aceitam boleto?", "Are you open on Sunday? And do you accept boleto?"),
+      ("Qual o endereço da loja?", "What is the store's address?")]),
     ("04_order_status_privacy.md", "Order status with verification across turns (non-trivial)",
      "Order lookup requires order number + the e-mail registered on that order, collected over two messages. The "
      "agent distinguishes the recorded status from real-time tracking, then combines the verified order with the "

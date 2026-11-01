@@ -1,6 +1,6 @@
 # Returns, exchanges and warranty (policy RAG with citations)
 
-> **Scenario.** Retrieval of the policy manual with section/page citations, a non-eligible item, and an ambiguous warranty case (45 days: store exchange window expired, legal warranty may still apply) that is escalated instead of denied.
+> **Scenario.** Retrieval of the policy manual with section/page citations, a non-eligible item, and an ambiguous warranty case (45 days: store exchange window expired, legal warranty may still apply) that is escalated instead of denied, plus opening hours, payment methods and the store's address (with the conflicting phone numbers in the manual flagged).
 >
 > Generated on 2026-11-01 by `scripts/generate_examples.py` · agent mode: **offline** (no LLM configured) · data: original challenge snapshot · store clock fixed at Tue 10:30 for reproducibility. Assistant messages are the verbatim output of `EmporioAgent.ask` (always in English). English notes in *italics* translate the customer's Portuguese messages; they are author translations, not agent output. Customer e-mails are redacted in the transcript.
 
@@ -92,3 +92,21 @@
 > Is there anything else I can help with?
 
 <sub>mode: `offline` · intents: `payment, hours` · tools: `search_store_policies, get_store_info` · sources: Policy Manual §3 (p. 3), Policy Manual §3.1 (p. 3), Policy Manual §2 (p. 2)</sub>
+
+### Turn 5
+
+**Customer:** Qual o endereço da loja?
+
+*EN: What is the store's address?*
+
+**Empório AI:**
+
+> 📍 Address: Rua 14 de Maio, 3200 — Centro, Campo Grande - MS, 79202-333
+> 📞 Phone/WhatsApp: (67) 3341-4444
+> 📞 WhatsApp: (67) 3321-4500
+> ✉️ E-mail: contato@emporiodamusica.com.br
+> Note: the store manual lists two different WhatsApp numbers. If one does not answer, please try the other one or the landline.
+>
+> Is there anything else I can help with?
+
+<sub>mode: `offline` · intents: `contact` · tools: `get_store_info` · sources: Policy Manual §1.2 (p. 2), Policy Manual §2 (p. 2), Policy Manual §7 (p. 6)</sub>

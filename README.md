@@ -449,7 +449,7 @@ deterministic mode). Customers write in Portuguese or English and the agent answ
 |---|---|
 | [`01_catalog_budget_search.md`](examples/01_catalog_budget_search.md) | *"Quais opções de violões disponíveis custando até R$1000?"*, a follow-up budget, a nylon filter, an out-of-stock product with alternatives, a beginner recommendation and a side-by-side comparison |
 | [`02_price_promotions_payment.md`](examples/02_price_promotions_payment.md) | *"Quanto custa o Takamine GD20?"*, PIX price, a promotion that does not stack with PIX, an expired campaign, active promotions, a misspelled model and an inconsistent catalog record |
-| [`03_returns_warranty_policies.md`](examples/03_returns_warranty_policies.md) | *"Me arrependi da minha compra, posso devolver meu pedido?"* with citation, a non-returnable item, a 45-day defect referred to the team |
+| [`03_returns_warranty_policies.md`](examples/03_returns_warranty_policies.md) | *"Me arrependi da minha compra, posso devolver meu pedido?"* with citation, a non-returnable item, a 45-day defect referred to the team, opening hours, payment methods and *"Qual o endereço da loja?"* |
 | [`04_order_status_privacy.md`](examples/04_order_status_privacy.md) | **Non-trivial:** order check over two messages, recorded status vs. live tracking, return request on a verified order, wrong e-mail |
 | [`05_english_scope_and_safety.md`](examples/05_english_scope_and_safety.md) | English compound question, accessories, out-of-scope question, prompt injection, cancellation request |
 
