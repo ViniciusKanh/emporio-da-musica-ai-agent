@@ -28,6 +28,7 @@ ROLE = "AI Engineer – Full-Stack para Aplicações com IA Generativa"
 APPENDICES = [
     ("Appendix A — Architecture details", "docs/ARCHITECTURE.md"),
     ("Appendix B — Evaluation report", "docs/EVALUATION.md"),
+    ("Appendix B2 — End-to-end evaluation set", "docs/LLM_EVALUATION.md"),
     ("Appendix C — Interaction transcripts", ["examples/01_catalog_budget_search.md",
                                               "examples/02_price_promotions_payment.md",
                                               "examples/03_returns_warranty_policies.md",
@@ -103,6 +104,8 @@ def fix_links(md_text: str, base: Path) -> str:
 
     def image(match: re.Match) -> str:
         alt, target = match.group(1), match.group(2)
+        if target.startswith(("http://", "https://")) or target.lower().endswith(".gif"):
+            return ""  # badges and animations are for the web README only
         path = (base / target).resolve()
         css = "diagram" if "architecture" in target else "screenshot"
         if css == "diagram" and path.with_suffix(".svg").is_file():

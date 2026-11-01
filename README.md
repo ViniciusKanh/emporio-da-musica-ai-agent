@@ -1,5 +1,7 @@
 # Empório AI — Customer Service Agent
 
+[![tests](https://github.com/ViniciusKanh/emporio-da-musica-ai-agent/actions/workflows/tests.yml/badge.svg)](https://github.com/ViniciusKanh/emporio-da-musica-ai-agent/actions/workflows/tests.yml)
+
 A Python text agent that answers customers of **Empório da Música**, a fictional musical-instrument store in
 Campo Grande/MS. It looks up products, prices, stock, promotions and orders in the store's data, explains the
 store's policies (payment, returns, warranty, shipping, opening hours) with page references, and politely declines
@@ -18,6 +20,8 @@ python run.py          # Windows: double-click run.bat  ·  Linux/macOS: ./run.s
 ```
 
 Then open <http://127.0.0.1:7860>. No API key is needed to try it (see [§2](#2-how-to-run)).
+
+![Demo: recommendation, comparison, expired campaign, catalog and policy search](docs/assets/demo.gif)
 
 ---
 
@@ -78,6 +82,7 @@ python run.py --test-only  # setup + tests only
 python run.py --skip-tests # start faster, without running the tests
 python run.py --offline    # ignore the API key and use the deterministic mode
 python run.py --share      # temporary public link (useful on remote machines)
+python run.py --eval       # evaluation set: LLM vs deterministic engine (writes docs/LLM_EVALUATION.md)
 ```
 
 On Windows you can also double-click **`run.bat`** (or run `run.bat --cli`, etc.). On Linux/macOS: `./run.sh`.
@@ -129,6 +134,16 @@ Open `notebooks/Emporio_AI_Colab.ipynb` in Colab (*File → Open notebook → Gi
 choose *Runtime → Run all*. It clones the repository, installs the dependencies, runs a demo and the tests. Optional
 cells let you upload the original files, read `GEMINI_API_KEY` from Colab *Secrets* and open the chat UI with a
 public link.
+
+### Online demo (Hugging Face Spaces)
+
+```bash
+python scripts/build_space.py   # creates dist/huggingface-space/ (app, code, synthetic data, Space card)
+```
+
+Create a new Space at <https://huggingface.co/new-space> with the **Gradio** SDK, upload the contents of
+`dist/huggingface-space/`, and (optionally) add `GEMINI_API_KEY` under *Settings → Variables and secrets*. The Space
+runs on the synthetic sample data only — the original challenge files are never uploaded.
 
 ---
 
@@ -386,6 +401,18 @@ Other test groups cover security (injection, data extraction, unauthorized actio
 retrieval and citations, data validation and business rules, the Gemini tool loop and the conversation features of
 §3 (typos, comparison, recommendations, opening status, catalog inconsistencies).
 
+**Evaluation set (end-to-end).** `scripts/evaluate_llm.py` (or `python run.py --eval`) asks 23 questions with known
+answers — prices, out-of-stock and discontinued items, non-stacked discounts, an expired campaign, policy rules,
+installments, shipping, order privacy (right and wrong e-mail), prompt injection, out-of-scope and a two-turn
+follow-up — and checks the tool called, the expected facts and forbidden content (wrong prices, other customers'
+data). It runs the configured LLM and the deterministic engine side by side and reports how many answers the LLM
+itself wrote, how many were rejected by the grounding check, and the latency. Current report:
+[`docs/LLM_EVALUATION.md`](docs/LLM_EVALUATION.md) — deterministic engine **23/23**; the LLM column is filled in when
+the script is run with `GEMINI_API_KEY` (or `LOCAL_LLM_BASE_URL`) set.
+
+**Continuous integration.** GitHub Actions runs the test suite on Python 3.10 and 3.12 and a CLI smoke test on
+every push (`.github/workflows/tests.yml`, badge at the top).
+
 **What was validated and what was not**
 
 | Item | Status |
@@ -394,7 +421,7 @@ retrieval and citations, data validation and business rules, the Gemini tool loo
 | Gemini tool loop: SDK types, tool execution, e-mail masking, answer check, fallback | Validated with a scripted fake client |
 | Local / OpenAI-compatible provider: HTTP protocol, tool calls, e-mail masking, fallback | Validated against a real local HTTP test server |
 | Answers of a real local model | **Not validated** — model downloads blocked in the development environment |
-| Answers of the real Gemini model | **Not validated** — no API key in the development environment |
+| Answers of the real Gemini model | **Not validated** — no API key in the development environment; run `python run.py --eval` with a key to measure it |
 | Colab notebook | Executed end-to-end with `jupyter nbconvert` on Linux, not inside Colab itself |
 | Web interface | Launched and used locally — the screenshots below are real captures |
 
@@ -497,7 +524,8 @@ python scripts/build_pdf.py           # regenerate the documentation PDF in subm
 **Repository layout**
 
 ```text
-run.py · run.bat · run.sh       one-command launcher
+run.py · run.bat · run.sh       one-command launcher (--cli, --test-only, --eval, --share, ...)
+.github/workflows/tests.yml     continuous integration (pytest on Python 3.10 and 3.12)
 app.py · run_cli.py             web chat (Gradio) and terminal chat
 src/emporio_ai/                 agent, tools, data, rules, retrieval, Gemini integration, safety checks
 tests/                          automated tests (pytest)
@@ -505,7 +533,7 @@ data/sample/                    synthetic sample data (public)
 examples/                       5 example conversations
 docs/                           architecture details, evaluation report, diagram and screenshots
 notebooks/                      Google Colab notebook
-scripts/                        examples, evaluation report and PDF generation
+scripts/                        examples, test report, LLM evaluation, Hugging Face Space and PDF generation
 submission/                     PDF generated from this README and docs/
 ```
 
