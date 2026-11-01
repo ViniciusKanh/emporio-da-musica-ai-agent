@@ -2,7 +2,7 @@
 
 > **Scenario.** Retrieval of the policy manual with section/page citations, a non-eligible item, and an ambiguous warranty case (45 days: store exchange window expired, legal warranty may still apply) that is escalated instead of denied.
 >
-> Generated on 2026-10-31 by `scripts/generate_examples.py` · agent mode: **offline** (no Gemini key was configured) · data: original challenge snapshot. Assistant messages are the verbatim output of `EmporioAgent.ask`. English notes in *italics* are author translations, not agent output. Customer e-mails are redacted in the transcript.
+> Generated on 2026-10-31 by `scripts/generate_examples.py` · agent mode: **offline** (no LLM configured) · data: original challenge snapshot · store clock fixed at Tue 10:30 for reproducibility. Assistant messages are the verbatim output of `EmporioAgent.ask`. English notes in *italics* are author translations, not agent output. Customer e-mails are redacted in the transcript.
 
 ### Turn 1
 
@@ -92,7 +92,7 @@
 > - Sábado: 09:00 às 13:00
 > - Domingo e Feriados: Fechado
 >
-> Agora (sábado, 19:17 em Campo Grande) a loja está **fechada** — abre segunda às 09:00. Feriados não constam no sistema.
+> Agora (terça, 10:30 em Campo Grande) a loja está **aberta** até as 18:00. Feriados não constam no sistema.
 >
 > O WhatsApp segue o mesmo horário. Em datas especiais (Black Friday, Aniversário da Loja, Natal) o horário pode ser estendido.
 >

@@ -2,7 +2,7 @@
 
 > **Scenario.** Order lookup requires order number + the e-mail registered on that order, collected over two messages. The agent distinguishes the recorded status from real-time tracking, then combines the verified order with the return policy and escalates because the receipt date is unknown.
 >
-> Generated on 2026-10-31 by `scripts/generate_examples.py` · agent mode: **offline** (no Gemini key was configured) · data: original challenge snapshot. Assistant messages are the verbatim output of `EmporioAgent.ask`. English notes in *italics* are author translations, not agent output. Customer e-mails are redacted in the transcript.
+> Generated on 2026-10-31 by `scripts/generate_examples.py` · agent mode: **offline** (no LLM configured) · data: original challenge snapshot · store clock fixed at Tue 10:30 for reproducibility. Assistant messages are the verbatim output of `EmporioAgent.ask`. English notes in *italics* are author translations, not agent output. Customer e-mails are redacted in the transcript.
 
 ### Turn 1
 
@@ -26,7 +26,7 @@
 
 **Empório AI:**
 
-> Encontrei seu pedido **#8** (feito em 2026-02-15):
+> Obrigado, Ana! Encontrei seu pedido **#8** (feito em 2026-02-15):
 > - Status registrado: **enviado**
 > - Itens: 1x Kala KA-C Concert Mogno
 > - Total: R$ 349,90 (cartão de débito)
@@ -35,9 +35,11 @@
 >
 > Essas informações vêm do último registro do nosso sistema; eu não tenho acesso ao rastreamento em tempo real da transportadora.
 >
+> ⚠️ A previsão de entrega registrada (2026-02-28) já passou e o pedido ainda consta como enviado. Vale conferir o rastreio; se não chegou, nossa equipe verifica com a transportadora. Fale com nossa equipe pelo WhatsApp (67) 3321-4500 (Segunda a Sexta-feira 09:00 às 18:00; Sábado 09:00 às 13:00).
+>
 > Posso ajudar em mais alguma coisa?
 
-<sub>mode: `offline` · intents: `order_status` · tools: `get_order_status` · sources: orders.csv, order_items.csv</sub>
+<sub>mode: `offline` · intents: `order_status` · tools: `get_order_status` · sources: orders.csv, order_items.csv · **human handoff**</sub>
 
 ### Turn 3
 
@@ -61,7 +63,7 @@
 
 **Empório AI:**
 
-> Encontrei seu pedido **#4** (feito em 2025-12-10):
+> Obrigado, Lucas! Encontrei seu pedido **#4** (feito em 2025-12-10):
 > - Status registrado: **entregue**
 > - Itens: 1x Giannini GF-3D Dreadnought Sunburst
 > - Total: R$ 799,90 (boleto bancário)

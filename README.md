@@ -107,15 +107,21 @@ To use the original data, copy the six CSV files (keeping their original names, 
 `desafio_tecnico_ai_eng - products.csv`) and `políticas_da_loja.pdf` into `data/`. The agent detects them
 automatically.
 
-### Gemini (optional)
+### Choosing the model (optional)
+
+The challenge allows "paid or free models, local or via API". Three modes are available; the interface always
+shows which one answered:
+
+| Mode | How to enable | Notes |
+|---|---|---|
+| **Gemini** (online) | `GEMINI_API_KEY=...` in `.env` | Free key at Google AI Studio. Recommended. |
+| **Local model** (or any OpenAI-compatible API) | `LOCAL_LLM_BASE_URL=...` and `LOCAL_LLM_MODEL=...` in `.env` | E.g. [Ollama](https://ollama.com): `ollama pull qwen2.5:7b-instruct`, then `LOCAL_LLM_BASE_URL=http://localhost:11434/v1`. LM Studio or a llama.cpp server with a GGUF model from Hugging Face also work. Runs offline, at no cost; quality depends on the model size. |
+| **Deterministic** (no LLM) | nothing to configure | Always available; also the automatic fallback. |
 
 ```bash
 cp .env.example .env     # Windows: copy .env.example .env
-# edit .env and set GEMINI_API_KEY=your_key
+# edit .env and set GEMINI_API_KEY=your_key   (or LOCAL_LLM_BASE_URL / LOCAL_LLM_MODEL)
 ```
-
-With a key the agent uses Gemini; without it, it uses the deterministic mode. The interface always shows which
-mode answered.
 
 ### Google Colab
 
@@ -166,6 +172,18 @@ all its intents, and each one gets its own part of the answer.
 | Catalog consistency | Korg synth whose description talks about a Roland | Flagged to the customer and in the data report instead of hidden |
 | Several products at once | *"quanto custa o C40 e o GD20?"* → one card per product | Each card comes from its own tool call |
 
+### Rules from the store manual that shape the conversation
+
+| Manual | Behaviour |
+|---|---|
+| §7.1 — outside business hours, say when the team is back | Every referral to the team adds "we are outside business hours: the team is back Monday at 09:00" when the store is closed |
+| §7.2 — greet the customer by name when available | After the order is verified, the agent greets the customer by **first name** (only the verified customer's own name) |
+| §7.3 — register the complaint and forward it | Every hand-off produces a **case note for the team** (reason, product, verified order, redacted message, 24-business-hour reply time), shown in the evidence panel — nothing is sent automatically |
+| §7.3 — never confirm availability without checking stock | Lists and cards come from the stock data; out-of-stock and discontinued items get alternatives |
+| §7.3 / §6.1 — expired promotion: be transparent | Inactive campaigns are reported as not valid, with what the manual says about when they usually happen (e.g. Black Friday in November), without promising a discount |
+| §5.2 — large instruments may need special freight | Drum kits and keyboards/pianos to other cities are referred for an individual freight quote |
+| §5.3 / §7.3 — delivery and complaints | A shipped order whose recorded delivery estimate has passed is flagged and referred to the team |
+
 ---
 
 ## 4. Technical decisions and why
@@ -197,6 +215,22 @@ it would give the model unrestricted access to `customers.csv` and make arithmet
 * **Validation status:** the hosted Gemini model was **not** called during development (no API key was available
   in that environment). The integration is tested with the real SDK types and a scripted fake client (§8).
 
+### Local models: supported, but optional
+
+The challenge accepts local models, so the agent also speaks the **OpenAI-compatible chat-completions API** used
+by Ollama, LM Studio and llama.cpp (and by many online providers). This lets the project run with an open-weight
+model downloaded from Hugging Face (e.g. Qwen 2.5 7B Instruct, Llama 3.1 8B Instruct) on the evaluator's machine,
+with no API key and no data leaving the computer.
+
+* **No new dependency:** the client uses only the Python standard library (`llm_openai.py`).
+* **Same safety net:** the same read-only tools, e-mail masking and answer check are used. Small models call tools
+  less reliably; when they fail, the deterministic engine answers.
+* **Why Gemini stays the default:** a 7B model on a laptop CPU is slow (tens of seconds per answer) and less
+  reliable at multi-step tool use; the case does not require a local model, so it is offered as an option.
+* **Validation status:** the wire protocol is tested against a real local HTTP server in the test suite; no actual
+  local model could be downloaded in the development environment (network restrictions), so answer quality with a
+  real local model is **not validated**.
+
 ### Retrieval: section-based chunks + BM25
 
 * The PDF is read page by page (`pypdf`) and split **by the manual's own numbered sections** (28 chunks), so each
@@ -225,13 +259,15 @@ after the model are enforced in code (§9).
 
 ### Interface and conversation history
 
-* **Gradio** web interface with three tabs:
+* **Gradio** web interface with four tabs:
     * **Atendimento** — the chat, one-click quick actions, a "store open/closed now" badge and an **evidence panel**
-      that shows, for every answer, the mode, the detected intents, the tools called and the sources (useful for an
-      evaluator to audit each answer);
+      that shows, for every answer, the mode, the detected intents, the tools called, the sources and, on hand-offs,
+      the case note for the team (useful for an evaluator to audit each answer);
     * **Catálogo** — a filterable product table (category, maximum price, availability, search) and the active
       promotions, computed with the same rules the agent uses;
-    * **Como funciona** — the architecture diagram, the data-quality findings and the contradictions found in the
+    * **Políticas** — type a question and see the 3 manual sections the retriever returns, with citation and
+      score (makes the RAG step visible);
+    * **Como funciona** — the supported models, the architecture diagram, the data-quality findings and the contradictions found in the
       manual, loaded live from the data.
 * **CLI** (`run_cli.py --trace`) and a **Colab notebook** for quick reproduction.
 * History is kept **in memory per session**: enough for follow-up questions, without persisting personal data.
@@ -328,10 +364,10 @@ python scripts/run_evaluation.py    # writes docs/EVALUATION.md with the observe
 
 | Configuration | Passed | Failed | Skipped |
 |---|---:|---:|---:|
-| Fresh clone (synthetic data only) | 97 | 0 | 18 |
-| With the original challenge files in `data/` | 115 | 0 | 0 |
+| Fresh clone (synthetic data only) | 108 | 0 | 20 |
+| With the original challenge files in `data/` | 128 | 0 | 0 |
 
-The 18 skipped tests are the ones that need the original files. Full report: [`docs/EVALUATION.md`](docs/EVALUATION.md).
+The 20 skipped tests are the ones that need the original files. Full report: [`docs/EVALUATION.md`](docs/EVALUATION.md).
 
 **What the tests cover.** Each problem found in the previous version of this project has its own regression tests:
 
@@ -356,6 +392,8 @@ retrieval and citations, data validation and business rules, the Gemini tool loo
 |---|---|
 | Deterministic agent on synthetic and original data | Validated (tests + generated examples) |
 | Gemini tool loop: SDK types, tool execution, e-mail masking, answer check, fallback | Validated with a scripted fake client |
+| Local / OpenAI-compatible provider: HTTP protocol, tool calls, e-mail masking, fallback | Validated against a real local HTTP test server |
+| Answers of a real local model | **Not validated** — model downloads blocked in the development environment |
 | Answers of the real Gemini model | **Not validated** — no API key in the development environment |
 | Colab notebook | Executed end-to-end with `jupyter nbconvert` on Linux, not inside Colab itself |
 | Web interface | Launched and used locally — the screenshots below are real captures |
@@ -363,6 +401,10 @@ retrieval and citations, data validation and business rules, the Gemini tool loo
 ![Chat with evidence panel](docs/assets/ui_chat.png)
 
 ![Catalog explorer](docs/assets/ui_catalog.png)
+
+![Policy retrieval explorer](docs/assets/ui_policies.png)
+
+![Hand-off with case note for the team](docs/assets/ui_handoff.png)
 
 ---
 
@@ -373,9 +415,11 @@ retrieval and citations, data validation and business rules, the Gemini tool loo
 * **Order access.** Requires the order number **and** the e-mail registered on that order. The same reply is given
   when the e-mail is wrong and when the order does not exist, and lookups are blocked after 3 failures in a session.
   This is a prototype safeguard, **not real authentication** (no login or one-time code).
-* **Personal data.** E-mails are replaced by tokens (`<EMAIL_1>`) before any text is sent to Gemini; the order tool
-  resolves the token locally. Logs and traces hide e-mails, phone numbers and CPF-like numbers. Answers never
-  contain customer names, e-mails or phones.
+* **Personal data.** E-mails are replaced by tokens (`<EMAIL_1>`) before any text is sent to an LLM (Gemini or a
+  local endpoint); the order tool resolves the token locally. Logs, traces and the team case note hide e-mails,
+  phone numbers and CPF-like numbers. Answers never contain e-mails, phones or other customers' data; the only
+  personal detail shown is the **first name of the verified customer**, used to greet them (manual §7.2), and it is
+  never sent to an LLM.
 * **Credentials** are read from environment variables or a `.env` file, which is excluded from Git
   (`.env.example` documents the variables).
 * **Restricted documents** — the policy manual and the original customer file — are not published.
@@ -434,7 +478,10 @@ The challenge asks to document reasonable assumptions where information is missi
 |---|---|---|
 | `GEMINI_API_KEY` | empty | Enables Gemini. Without it the agent runs in deterministic mode. |
 | `GEMINI_MODEL` | `gemini-2.5-flash` | Any Gemini model that supports function calling. |
-| `EMPORIO_LLM_MODE` | `auto` | `auto`, `gemini` (fails without a key) or `offline`. |
+| `EMPORIO_LLM_MODE` | `auto` | `auto`, `gemini`, `local` (fail if not configured) or `offline`. |
+| `LOCAL_LLM_BASE_URL` | empty | OpenAI-compatible endpoint, e.g. `http://localhost:11434/v1` (Ollama). |
+| `LOCAL_LLM_MODEL` | `qwen2.5:7b-instruct` | Model name as known by the local server. |
+| `LOCAL_LLM_API_KEY` / `LOCAL_LLM_TIMEOUT` | empty / `120` | Optional key (online providers) and timeout in seconds. |
 | `EMPORIO_MAX_TOOL_ROUNDS` | `5` | Maximum tool-calling rounds per message. |
 | `EMPORIO_DATA_DIR` / `EMPORIO_POLICY_PATH` | auto | Alternative locations for the data and the policy document. |
 

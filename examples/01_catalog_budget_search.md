@@ -2,7 +2,7 @@
 
 > **Scenario.** Category + price parsing, stock and status filtering, conversational follow-up (the second message reuses the category of the first), sub-type filter (nylon), an out-of-stock product with alternatives, a beginner recommendation justified by the catalog descriptions and a side-by-side comparison.
 >
-> Generated on 2026-10-31 by `scripts/generate_examples.py` · agent mode: **offline** (no Gemini key was configured) · data: original challenge snapshot. Assistant messages are the verbatim output of `EmporioAgent.ask`. English notes in *italics* are author translations, not agent output. Customer e-mails are redacted in the transcript.
+> Generated on 2026-10-31 by `scripts/generate_examples.py` · agent mode: **offline** (no LLM configured) · data: original challenge snapshot · store clock fixed at Tue 10:30 for reproducibility. Assistant messages are the verbatim output of `EmporioAgent.ask`. English notes in *italics* are author translations, not agent output. Customer e-mails are redacted in the transcript.
 
 ### Turn 1
 

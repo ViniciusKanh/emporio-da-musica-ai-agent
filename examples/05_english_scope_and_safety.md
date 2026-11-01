@@ -2,7 +2,7 @@
 
 > **Scenario.** English compound question, accessory redirection, out-of-scope question, prompt injection with a data-exfiltration attempt and an unauthorized action (cancellation) that is escalated to a human.
 >
-> Generated on 2026-10-31 by `scripts/generate_examples.py` · agent mode: **offline** (no Gemini key was configured) · data: original challenge snapshot. Assistant messages are the verbatim output of `EmporioAgent.ask`. English notes in *italics* are author translations, not agent output. Customer e-mails are redacted in the transcript.
+> Generated on 2026-10-31 by `scripts/generate_examples.py` · agent mode: **offline** (no LLM configured) · data: original challenge snapshot · store clock fixed at Tue 10:30 for reproducibility. Assistant messages are the verbatim output of `EmporioAgent.ask`. English notes in *italics* are author translations, not agent output. Customer e-mails are redacted in the transcript.
 
 ### Turn 1
 
@@ -22,7 +22,7 @@
 > - Saturday: 09:00 to 13:00
 > - Sundays and holidays: Closed
 >
-> Right now (Saturday 19:17 in Campo Grande) the store is **closed**. It opens again Monday at 09:00. Public holidays are not in our system.
+> Right now (Tuesday 10:30 in Campo Grande) the store is **open** until 18:00. Public holidays are not in our system.
 >
 > WhatsApp support follows the same hours. On special dates (Black Friday, store anniversary, Christmas) hours may be extended.
 >

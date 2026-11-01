@@ -19,6 +19,7 @@ Complements sections 2–5 of the [README](../README.md). Everything below descr
 | `offline_engine.py` | `OfflineEngine.respond` | One builder per intent; context resolution; curated wording only when the manual contains the facts. |
 | `llm.py` | `GeminiAgent.respond`, `grounding_issues`, `SYSTEM_PROMPT`, `TOOL_DECLARATIONS` | Manual function-calling loop with the official SDK. |
 | `store_hours.py` | `open_status`, `describe` | "Open now?" from the manual's hours in Campo Grande time (UTC-4). |
+| `llm_openai.py` | `OpenAICompatibleAgent.respond` | Same tool loop over the OpenAI-compatible API (Ollama, LM Studio, llama.cpp, online providers) using only `urllib`. |
 | `agent.py` | `EmporioAgent.ask` → `AgentResponse` | Sessions, mode selection, fallbacks, warnings. |
 
 ## Product matching
@@ -95,6 +96,7 @@ Produced by `DataStore` at start-up (see the notebook output or `agent.store.rep
 
 | Decision | Alternatives considered | Reason |
 |---|---|---|
+| Provider-agnostic tool layer; Gemini default, local model optional | Local model only; Gemini only | The case allows both; Gemini is faster and more reliable at tool use, a local model gives cost-free, offline operation. Grounding checks are shared. |
 | Native function calling, manual loop | LangChain agent; automatic function calling | Full control of validation, tracing, bounds and PII; fewer dependencies. |
 | Deterministic tools for numbers | LLM-generated pandas/SQL | Exact, testable arithmetic; no access path to customer data. |
 | BM25 over section chunks | Embeddings + vector DB | 28 chunks; lexical ranking is precise and explainable; no extra service. |

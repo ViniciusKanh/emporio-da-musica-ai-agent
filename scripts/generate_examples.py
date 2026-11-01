@@ -78,6 +78,12 @@ CONVERSATIONS = [
 def main() -> int:
     settings = Settings.from_env(llm_mode=None)
     agent = EmporioAgent(settings)
+    # Fixed store clock (a Tuesday, 10:30 in Campo Grande) so that "open now" answers are reproducible.
+    from datetime import datetime
+
+    from emporio_ai.store_hours import STORE_TZ
+
+    agent.clock = lambda: datetime(2026, 11, 3, 10, 30, tzinfo=STORE_TZ)
     if settings.uses_sample_data:
         print("Original challenge files not found in data/; examples are meant for the original snapshot.")
         return 1
@@ -93,7 +99,8 @@ def main() -> int:
         lines = [f"# {title}", "",
                  f"> **Scenario.** {description}", ">",
                  f"> Generated on {today} by `scripts/generate_examples.py` · agent mode: **{agent.mode}** "
-                 f"(no Gemini key was configured) · data: original challenge snapshot. Assistant messages are the "
+                 f"(no LLM configured) · data: original challenge snapshot · store clock fixed at Tue 10:30 for reproducibility. "
+                 "Assistant messages are the "
                  "verbatim output of `EmporioAgent.ask`. English notes in *italics* are author translations, not agent "
                  "output. Customer e-mails are redacted in the transcript.", ""]
         for i, (message, note) in enumerate(turns, start=1):

@@ -2,7 +2,7 @@
 
 > **Scenario.** Exact model lookup, PIX discount, an active promotion that must not be stacked with PIX, a question about an expired campaign that must not be honoured, the list of active promotions, a misspelled model name and a product whose catalog description names a different brand (flagged instead of hidden).
 >
-> Generated on 2026-10-31 by `scripts/generate_examples.py` · agent mode: **offline** (no Gemini key was configured) · data: original challenge snapshot. Assistant messages are the verbatim output of `EmporioAgent.ask`. English notes in *italics* are author translations, not agent output. Customer e-mails are redacted in the transcript.
+> Generated on 2026-10-31 by `scripts/generate_examples.py` · agent mode: **offline** (no LLM configured) · data: original challenge snapshot · store clock fixed at Tue 10:30 for reproducibility. Assistant messages are the verbatim output of `EmporioAgent.ask`. English notes in *italics* are author translations, not agent output. Customer e-mails are redacted in the transcript.
 
 ### Turn 1
 
