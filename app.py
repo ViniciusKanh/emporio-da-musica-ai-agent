@@ -197,7 +197,7 @@ button[role="tab"][aria-selected="true"] { color:var(--magenta) !important; bord
 .kpi { background:#fff; border:1px solid var(--line); border-radius:16px; padding:14px 16px; }
 .kpi .v { font-size:1.5rem; font-weight:700; color:var(--navy); } .kpi .l { color:var(--muted); font-size:.82rem; }
 .kpi.accent .v { color:var(--magenta); }
-.usage table { width:100%; border-collapse:collapse; font-size:.88rem; }
+.usage { overflow-x:auto; } .usage table { width:100%; border-collapse:collapse; font-size:.82rem; }
 .usage th { text-align:left; color:var(--muted); font-weight:600; padding:6px 4px; border-bottom:1px solid var(--line); }
 .usage td { padding:7px 4px; border-bottom:1px solid var(--line); color:var(--ink); }
 .usage .bar { height:8px; border-radius:99px; background:#eceff7; overflow:hidden; margin-top:4px; }

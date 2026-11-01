@@ -24,6 +24,9 @@ python run.py          # Windows: double-click run.bat  ·  Linux/macOS: ./run.s
 
 Then open <http://127.0.0.1:7860>. No API key is needed to try it (see [§2](#2-how-to-run)).
 
+**Live demo:** <https://huggingface.co/spaces/ViniciusKhan/emporio-ai> (Hugging Face Space, synthetic sample data
+only — the original challenge files are not published).
+
 ![Demo: chat with Vinicius (typing indicator), recommendation, comparison, expired campaign, settings and catalog](docs/assets/demo.gif)
 
 ---
@@ -158,6 +161,8 @@ public link.
 
 ### Online demo (Hugging Face Spaces)
 
+Live: <https://huggingface.co/spaces/ViniciusKhan/emporio-ai>. To publish your own copy:
+
 ```bash
 python scripts/build_space.py   # creates dist/huggingface-space/ (app, code, synthetic data, Space card)
 ```
@@ -165,6 +170,14 @@ python scripts/build_space.py   # creates dist/huggingface-space/ (app, code, sy
 Create a new Space at <https://huggingface.co/new-space> with the **Gradio** SDK, upload the contents of
 `dist/huggingface-space/`, and (optionally) add `GEMINI_API_KEY` under *Settings → Variables and secrets*. The Space
 runs on the synthetic sample data only — the original challenge files are never uploaded.
+
+Notes for the Space: on free accounts Gradio Spaces run on **ZeroGPU** hardware, which requires a `@spaces.GPU`
+function at start-up — `app.py` declares a placeholder that is never called (the agent needs no GPU). A model on
+your own computer (Ollama) is not reachable from the Space; as the second provider you can use Hugging Face
+**Inference Providers**, which expose an OpenAI-compatible API: `LOCAL_LLM_BASE_URL=https://router.huggingface.co/v1`,
+`LOCAL_LLM_API_KEY` = a token with the *Inference Providers* permission (as a secret) and `LOCAL_LLM_MODEL` = a model
+listed by *Detectar modelos* in the settings tab. Availability and tool-calling support depend on the providers
+enabled in your account.
 
 **Alternative: Render (free web service).** The repository includes a `render.yaml` blueprint: on
 <https://render.com> choose *New → Blueprint*, select this GitHub repository and, optionally, set `GEMINI_API_KEY`.
