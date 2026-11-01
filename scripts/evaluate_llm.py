@@ -87,6 +87,7 @@ class Outcome:
     failures: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     answer: str = ""
+    tokens: int = 0
 
 
 def run(agent: EmporioAgent, emails: dict[int, str]) -> list[Outcome]:
@@ -109,7 +110,9 @@ def run(agent: EmporioAgent, emails: dict[int, str]) -> list[Outcome]:
         forbidden = [m.replace("{email:2}", emails.get(2, "")).replace("{email:1}", emails.get(1, ""))
                      for m in case.must_not]
         failures += [f"forbidden '{m}'" for m in forbidden if m and normalize(m) in text]
-        outcomes.append(Outcome(case, response.mode, seconds, tools, failures, response.warnings, response.text))
+        tokens = sum(u["total_tokens"] for u in (response.usage or {}).values())
+        outcomes.append(Outcome(case, response.mode, seconds, tools, failures, response.warnings, response.text,
+                                tokens))
     return outcomes
 
 
@@ -125,7 +128,9 @@ def section(title: str, outcomes: list[Outcome]) -> list[str]:
              f"{sum(not o.failures for o in outcomes if o.engine != 'offline')}/{llm_answered}",
              f"- **LLM answers rejected by the grounding check or provider errors (fell back):** {len(fallbacks)}",
              f"- **Median latency:** {statistics.median(o.seconds for o in outcomes):.2f} s · "
-             f"max {max(o.seconds for o in outcomes):.2f} s", "",
+             f"max {max(o.seconds for o in outcomes):.2f} s",
+             f"- **Tokens reported by the provider(s):** {sum(o.tokens for o in outcomes):,} in total "
+             f"({statistics.mean(o.tokens for o in outcomes):,.0f} per question on average)", "",
              "| Case | Answered by | Tools called | Result |", "|---|---|---|---|"]
     for o in outcomes:
         result = "✅ pass" if not o.failures else "❌ " + "; ".join(o.failures)

@@ -61,8 +61,10 @@ def _t(lang: str, pt: str, en: str) -> str:
 
 
 class OfflineEngine:
-    def __init__(self, tools: ToolBox, router: IntentRouter, rules: BusinessRules | None = None):
+    def __init__(self, tools: ToolBox, router: IntentRouter, rules: BusinessRules | None = None,
+                 assistant_name: str = "Vinicius"):
         self.tools, self.router = tools, router
+        self.assistant_name = assistant_name
         self.rules = rules or tools.rules
         self.kb = tools.policies
         from .store_hours import STORE_TZ
@@ -169,6 +171,7 @@ class OfflineEngine:
             fixed = ", ".join(f"**{good.title()}** ({typed!r})" for typed, good in route.corrections)
             sections.insert(0, _t(lang, f"_Entendi {fixed}._", f"_I understood {fixed}._"))
 
+        self._dedupe_contact(sections, lang)
         if handled or guard.flagged or guard.action_request:
             sections.append(_t(lang, "Posso ajudar em mais alguma coisa?", "Is there anything else I can help with?"))
         self._remember(route, state)
@@ -1035,6 +1038,15 @@ class OfflineEngine:
                        f"{status.next_open_at:%H:%M}.")
         return line
 
+    def _dedupe_contact(self, sections: list[str], lang: str) -> None:
+        """When several sections refer the customer to the team, give the full contact line only once (last)."""
+        line = self._human_contact_line(lang)
+        holders = [i for i, body in enumerate(sections) if line in body]
+        short = _t(lang, "fale com nossa equipe pelo WhatsApp (contato logo abaixo).",
+                   "contact our team on WhatsApp (details below).")
+        for i in holders[:-1]:
+            sections[i] = sections[i].replace(line, short)
+
     def _human_section(self, route: Route, state: ConversationState):
         sec = self.kb.find_section("Situações Especiais")
         r = self.rules
@@ -1148,10 +1160,10 @@ class OfflineEngine:
     # ========================================================= fallbacks
     def _greeting(self, lang: str) -> str:
         return _t(lang,
-                  "Oi! Eu sou o assistente virtual da **Empório da Música** 🎸. Posso te ajudar com preços, estoque e "
+                  f"Oi! Eu sou o {self.assistant_name}, assistente virtual da **Empório da Música** 🎸. Posso te ajudar com preços, estoque e "
                   "promoções de instrumentos, status de pedidos e nossas políticas (pagamento, trocas, entrega, garantia "
                   "e horários). Como posso ajudar?",
-                  "Hi! I'm the virtual assistant of **Empório da Música** 🎸. I can help with instrument prices, stock and "
+                  f"Hi! I'm {self.assistant_name}, the virtual assistant of **Empório da Música** 🎸. I can help with instrument prices, stock and "
                   "promotions, order status and store policies (payment, returns, shipping, warranty and hours). "
                   "How can I help?")
 

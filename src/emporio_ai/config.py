@@ -81,6 +81,12 @@ class Settings:
     local_model: str = DEFAULT_LOCAL_MODEL
     local_api_key: str | None = field(default=None, repr=False)
     local_timeout: float = 120.0
+    # Use the local model when the primary provider (Gemini) fails - quota/rate limit, network, invalid answer.
+    fallback_to_local: bool = True
+    # Optional token budgets per session (None = unlimited). When reached, the provider is skipped.
+    gemini_token_budget: int | None = None
+    local_token_budget: int | None = None
+    assistant_name: str = "Vinicius"
 
     @property
     def uses_sample_data(self) -> bool:
@@ -106,4 +112,16 @@ class Settings:
             local_model=os.getenv("LOCAL_LLM_MODEL", DEFAULT_LOCAL_MODEL),
             local_api_key=os.getenv("LOCAL_LLM_API_KEY") or None,
             local_timeout=float(os.getenv("LOCAL_LLM_TIMEOUT", "120")),
+            fallback_to_local=os.getenv("EMPORIO_LOCAL_FALLBACK", "true").strip().lower() not in {"0", "false", "no"},
+            gemini_token_budget=_optional_int(os.getenv("GEMINI_TOKEN_BUDGET")),
+            local_token_budget=_optional_int(os.getenv("LOCAL_LLM_TOKEN_BUDGET")),
+            assistant_name=(os.getenv("EMPORIO_ASSISTANT_NAME") or "Vinicius").strip()[:40] or "Vinicius",
         )
+
+
+def _optional_int(value: str | None) -> int | None:
+    try:
+        number = int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None

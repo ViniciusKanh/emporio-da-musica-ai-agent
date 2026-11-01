@@ -25,13 +25,15 @@ from .conversation import ConversationState
 from .guardrails import EMAIL_RE, PHONE_RE, PiiVault
 from .text_utils import extract_money_values
 from .tools import ToolBox
+from .usage import CallUsage
 
 logger = logging.getLogger(__name__)
 MAX_HISTORY_CONTENTS = 12
 
-SYSTEM_PROMPT = """You are the virtual customer-service assistant of **Empório da Música**, a musical-instrument store in
-Campo Grande/MS, Brazil (slogan: "Sua música começa aqui."). Tone: informal but professional, warm, like a friend who
-understands music; concise; no robotic language. Reply in the customer's language (Brazilian Portuguese by default,
+SYSTEM_PROMPT_TEMPLATE = """You are {name}, the virtual customer-service assistant of **Empório da Música**, a
+musical-instrument store in Campo Grande/MS, Brazil (slogan: "Sua música começa aqui."). Introduce yourself by name when
+greeting. You are a virtual assistant: if asked, say so - never claim to be a human. Tone: informal but professional,
+warm and human, like a friend who understands music; concise; no robotic language. Reply in the customer's language (Brazilian Portuguese by default,
 English if the customer writes in English). Format prices as R$ 1.234,56.
 
 GROUNDING RULES (mandatory)
@@ -65,6 +67,13 @@ GROUNDING RULES (mandatory)
     mentions a different brand from the product name, warn that the record looks inconsistent.
 11. "Are you open now?": use the open_now field of get_store_info and mention that holidays are not in the data.
 End with a short offer of further help when appropriate."""
+
+
+def build_system_prompt(assistant_name: str = "Vinicius") -> str:
+    return SYSTEM_PROMPT_TEMPLATE.replace("{name}", assistant_name)
+
+
+SYSTEM_PROMPT = build_system_prompt()
 
 
 def _schema(properties: dict[str, Any], required: list[str] | None = None) -> dict:
@@ -169,7 +178,7 @@ class GeminiAgent:
     label = "Gemini"
 
     def __init__(self, api_key: str, model: str, max_tool_rounds: int = 5, client: Any = None,
-                 temperature: float = 0.2):
+                 temperature: float = 0.2, assistant_name: str = "Vinicius"):
         from google import genai
         from google.genai import types
 
@@ -178,7 +187,7 @@ class GeminiAgent:
         self.max_tool_rounds = max_tool_rounds
         self.client = client or genai.Client(api_key=api_key)
         self.config = types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
+            system_instruction=build_system_prompt(assistant_name),
             temperature=temperature,
             tools=[types.Tool(function_declarations=[
                 types.FunctionDeclaration(name=d["name"], description=d["description"],
@@ -186,20 +195,25 @@ class GeminiAgent:
             automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
         )
 
-    def respond(self, message: str, state: ConversationState, tools: ToolBox) -> LLMResult:
+    def respond(self, message: str, state: ConversationState, tools: ToolBox,
+                usage: CallUsage | None = None) -> LLMResult:
         types = self.types
         if state.pii_vault is None:
             state.pii_vault = PiiVault()  # in-memory only, per session
         vault: PiiVault = state.pii_vault  # type: ignore[assignment]
         tools.email_resolver = vault.resolve
         safe_message = vault.tokenize(message or "")
+        usage = usage if usage is not None else CallUsage()
 
-        history = list(state.llm_history[-MAX_HISTORY_CONTENTS:])
+        history = [types.Content(role="model" if role == "assistant" else "user",
+                                 parts=[types.Part.from_text(text=text)])
+                   for role, text in transcript_window(state)]
         contents = history + [types.Content(role="user", parts=[types.Part.from_text(text=safe_message)])]
         results: list[dict] = []
         response = None
         for _ in range(self.max_tool_rounds + 1):
             response = self.client.models.generate_content(model=self.model, contents=contents, config=self.config)
+            self._count(response, usage)
             calls = list(response.function_calls or [])
             if not calls:
                 break
@@ -218,13 +232,38 @@ class GeminiAgent:
         if not text:
             raise RuntimeError("empty answer from model")
         issues = assess_answer(text, results, tools)
-
-        # Persist a compact history (user turn + final answer) for conversational continuity.
-        state.llm_history = (history + [contents[len(history)],
-                                        types.Content(role="model", parts=[types.Part.from_text(text=text)])]
-                             )[-MAX_HISTORY_CONTENTS:]
-        logger.info("gemini tools=%s grounded=%s", json.dumps([c.name for c in tools.trace]), not issues)
+        logger.info("gemini tools=%s grounded=%s tokens=%d", json.dumps([c.name for c in tools.trace]), not issues,
+                    usage.total_tokens)
         return build_result(text, issues, tools)
+
+    @staticmethod
+    def _count(response: Any, usage: CallUsage) -> None:
+        meta = getattr(response, "usage_metadata", None)
+        usage.add(getattr(meta, "prompt_token_count", 0), getattr(meta, "candidates_token_count", 0),
+                  getattr(meta, "total_token_count", 0))
+
+    def ping(self, usage: CallUsage | None = None) -> str:
+        """Tiny request to validate key + model. Raises on failure."""
+        usage = usage if usage is not None else CallUsage()
+        response = self.client.models.generate_content(
+            model=self.model, contents="Responda apenas: OK",
+            config=self.types.GenerateContentConfig(temperature=0, max_output_tokens=256))
+        self._count(response, usage)
+        return (response.text or "").strip()[:60] or "(resposta vazia)"
+
+    def list_models(self) -> list[str]:
+        names = []
+        for m in self.client.models.list():
+            actions = getattr(m, "supported_actions", None) or []
+            name = (getattr(m, "name", "") or "").removeprefix("models/")
+            if "gemini" in name and (not actions or "generateContent" in actions):
+                names.append(name)
+        return sorted(set(names))
+
+
+def transcript_window(state: ConversationState) -> list[tuple[str, str]]:
+    """Last turns of the provider-neutral transcript (user messages already tokenised)."""
+    return list(state.transcript[-MAX_HISTORY_CONTENTS:])
 
 
 def assess_answer(text: str, results: list[dict], tools: ToolBox) -> list[str]:

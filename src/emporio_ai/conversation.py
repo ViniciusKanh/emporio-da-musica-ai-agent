@@ -20,5 +20,11 @@ class ConversationState:
     verified_order_view: dict | None = field(default=None, repr=False)
     failed_order_attempts: int = 0
     turns: int = 0
-    llm_history: list = field(default_factory=list, repr=False)  # provider-specific message objects
+    # Provider-neutral transcript of (role, text) pairs, e-mails already tokenised. Every LLM provider builds its
+    # own history from it, so the conversation continues when the agent switches provider (e.g. Gemini -> local).
+    transcript: list = field(default_factory=list, repr=False)
     pii_vault: object | None = field(default=None, repr=False)  # e-mail <-> token map for the LLM path
+    # Optional per-session provider configuration set from the UI (None = use the agent defaults).
+    llm_config: object | None = field(default=None, repr=False)
+    providers: list | None = field(default=None, repr=False)
+    usage: object | None = field(default=None, repr=False)  # UsageMeter for this session
