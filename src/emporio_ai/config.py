@@ -15,7 +15,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DATA_DIR = PROJECT_ROOT / "data"
 SAMPLE_DATA_DIR = DEFAULT_DATA_DIR / "sample"
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-3.5-flash"
 DEFAULT_LOCAL_MODEL = "qwen2.5:7b-instruct"
 
 # Dataset name -> accepted file names (original challenge naming first).

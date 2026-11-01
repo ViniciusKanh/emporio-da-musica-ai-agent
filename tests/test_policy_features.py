@@ -54,3 +54,14 @@ def test_shipment_not_yet_due_is_not_flagged(agent):
     agent.clock = lambda: datetime(2026, 1, 20, 11, 0, tzinfo=STORE_TZ)
     response = agent.ask("pedido 1002 cliente.dois@example.com")
     assert "já passou" not in response.text and not response.handoff
+
+
+def test_about_the_store_quotes_data_not_marketing_figures(agent):
+    text = agent.ask("Me fala sobre a loja").text
+    assert "instrumentos disponíveis" in text and "300" not in text
+
+
+def test_about_the_store_on_original_manual(original_agent):
+    text = original_agent.ask("Me fala sobre a loja").text
+    assert "fundada em 2008" in text and "Campo Grande" in text and "mais de 300" not in text
+    assert any("more than 300" in issue for issue in original_agent.store.report.issues)

@@ -59,7 +59,7 @@ class ProviderConfig:
 
     primary: str = "auto"  # auto | gemini | local | offline
     gemini_api_key: str | None = field(default=None, repr=False)
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "gemini-3.5-flash"
     local_base_url: str | None = None
     local_model: str = "qwen2.5:7b-instruct"
     local_api_key: str | None = field(default=None, repr=False)
@@ -88,6 +88,7 @@ class EmporioAgent:
         self.store.report.issues.extend(self.catalog.data_findings())
         self.orders = OrderService(self.store)
         self.policies = PolicyKnowledgeBase(self.settings.policy_path, self.rules)
+        self.store.report.issues.extend(self._manual_vs_data_findings())
         self.router = IntentRouter(self.catalog)
         self._sessions: dict[str, ConversationState] = {}
         self.clock = None  # optional callable returning the current store time (tests / reproducible examples)
@@ -104,6 +105,18 @@ class EmporioAgent:
     def from_paths(cls, data_dir: str | Path, policy_path: str | Path | None = None, llm_mode: str = "offline",
                    llm=None) -> "EmporioAgent":
         return cls(Settings.from_env(data_dir=data_dir, policy_path=policy_path, llm_mode=llm_mode), llm=llm)
+
+    def _manual_vs_data_findings(self) -> list[str]:
+        """Claims of the manual that the data snapshot does not support (reported, never repeated to customers)."""
+        import re
+
+        text = " ".join(" ".join(c.text.split()) for c in self.policies.chunks)
+        found = re.search(r"mais de (\d+) instrumentos", text)
+        total = len(self.catalog.products)
+        if found and total < int(found.group(1)):
+            return [f"manual §1 says the catalog has more than {found.group(1)} instruments; the snapshot has {total} "
+                    "products - the agent always quotes the data, not the manual's figure"]
+        return []
 
     # ------------------------------------------------------------ providers
     def build_providers(self, config: ProviderConfig, strict: bool = False) -> list:

@@ -70,7 +70,7 @@ SAMPLE_QUICK_ACTIONS = [
     ("🕘 Estão abertos?", "Vocês estão abertos agora?"),
     ("🌐 In English", "How much is the Vento VD-90E and is it in stock?"),
 ]
-GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"]
+GEMINI_MODELS = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"]
 LOCAL_PRESETS = {"Ollama": "http://localhost:11434/v1", "LM Studio": "http://localhost:1234/v1",
                  "llama.cpp server": "http://localhost:8080/v1"}
 PRIMARY_CHOICES = [("Automático — Gemini, depois modelo local, depois determinístico", "auto"),

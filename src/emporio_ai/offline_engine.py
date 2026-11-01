@@ -1003,8 +1003,43 @@ class OfflineEngine:
         return lead, [sec.citation()] if sec else [], False
 
     def _about_section(self, route: Route, state: ConversationState):
+        """Store profile from the manual (§1) + what the catalog snapshot actually contains.
+
+        The manual's marketing figures (e.g. "more than 300 instruments") are not repeated to the customer: the
+        numbers given come from the data, as required by §7.1 ("never give information without checking the system").
+        """
         sec = self.kb.find_section("Sobre a")
-        return self._excerpt(sec, route.lang, max_lines=4), [sec.citation()] if sec else [], False
+        mission = self.kb.find_section("Missão")
+        if sec is None:
+            return None
+        text = " ".join(sec.text.split())
+        founded = re.search(r"fundada em (\d{4})(?: em ([^,.]+(?:, [A-Z][^,.]+)?))?", text)
+        products = self.tools.catalog.products
+        available = products[products["availability"] == "available"]
+        cats = sorted(available["category"].dropna().unique())
+        cats_en = [CATEGORY_EN.get(c, c) for c in cats]
+        lang = route.lang
+        intro_pt = "A **Empório da Música** é uma loja especializada em instrumentos musicais"
+        intro_en = "**Empório da Música** is a store specialised in musical instruments"
+        if founded:
+            where = f" em {founded.group(2).strip()}" if founded.group(2) else ""
+            intro_pt += f", fundada em {founded.group(1)}{where}"
+            intro_en += f", founded in {founded.group(1)}" + (f" in {founded.group(2).strip()}" if founded.group(2) else "")
+        parts = [_t(lang, intro_pt + ".", intro_en + ".")]
+        if self._doc_says("exclusivamente com instrumentos"):
+            parts.append(_t(lang, "Trabalhamos **exclusivamente com instrumentos** — não vendemos acessórios.",
+                            "We sell **instruments only** — no accessories."))
+        if mission is not None:
+            body = " ".join(l.strip() for l in mission.text.splitlines()[1:] if l.strip())
+            if body:
+                parts.append(_t(lang, f"Nossa missão: _{body}_", f"Our mission (in Portuguese): _{body}_"))
+        parts.append(_t(lang,
+                        f"No sistema, hoje temos **{len(available)} instrumentos disponíveis** para venda, em "
+                        f"{len(cats)} categorias: {', '.join(cats)}.",
+                        f"Our system currently lists **{len(available)} instruments available** for sale in "
+                        f"{len(cats)} categories: {', '.join(cats_en)}."))
+        sources = [sec.citation()] + ([mission.citation()] if mission else []) + ["products.csv", "categories.csv"]
+        return "\n\n".join(parts), sources, False
 
     def _accessory_section(self, route: Route, state: ConversationState):
         sec = self.kb.find_section("Sobre a")
