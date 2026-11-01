@@ -81,6 +81,12 @@ CSS = """
 .evidence .chip.mode-offline { background:#e9eef7; }
 .evidence ul { margin:4px 0 0 18px; padding:0; } .evidence li { margin:2px 0; color:var(--ink); }
 .evidence .handoff { margin-top:10px; padding:8px 10px; border-radius:10px; background:#fff6e5; color:#7a4b00; }
+.evidence .summary { margin-top:8px; padding:8px 10px; border-radius:10px; background:#eef3ff; color:var(--ink);
+                    font-size:.82rem; line-height:1.45; }
+.policy-hit { border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin:8px 0; background:#fff; }
+.policy-hit .cite { color:var(--magenta); font-weight:600; font-size:.85rem; }
+.policy-hit .score { float:right; color:var(--muted); font-size:.78rem; }
+.policy-hit pre { white-space:pre-wrap; font-family:inherit; margin:6px 0 0; color:var(--ink); font-size:.88rem; }
 .evidence .warn { margin-top:8px; padding:8px 10px; border-radius:10px; background:#fdeceb; color:#8a1f12; }
 .welcome { text-align:center; color:var(--muted); padding:30px 10px; }
 .welcome b { color:var(--navy); }
@@ -101,7 +107,8 @@ def evidence_html(result=None, error: str | None = None) -> str:
     if result is None:
         return ('<div class="evidence"><h4>Evidências da resposta</h4><div class="row">Envie uma pergunta para ver '
                 'o modo usado, as intenções detectadas, as ferramentas consultadas e as fontes de cada resposta.</div></div>')
-    mode = "Gemini (function calling)" if result.mode == "gemini" else "Determinístico (sem LLM)"
+    mode = {"gemini": "Gemini (function calling)", "local": "Modelo local / OpenAI-compatível (function calling)"}.get(
+        result.mode, "Determinístico (sem LLM)")
     intents = "".join(f'<span class="chip">{html.escape(i)}</span>' for i in result.intents) or "—"
     counts: dict[str, int] = {}
     for call in result.tool_calls:
@@ -112,6 +119,10 @@ def evidence_html(result=None, error: str | None = None) -> str:
     extra = ""
     if result.handoff:
         extra += '<div class="handoff">🤝 Caso encaminhado para atendimento humano.</div>'
+        if getattr(result, "handoff_summary", None):
+            note = html.escape(result.handoff_summary).replace("\n", "<br>")
+            extra += (f'<div class="summary"><b>📝 Resumo para a equipe</b> (§7.3 — registrar e encaminhar; não é '
+                      f'enviado automaticamente)<br>{note}</div>')
     for warning in result.warnings:
         extra += f'<div class="warn">⚠️ {html.escape(warning)}</div>'
     return (f'<div class="evidence"><h4>Evidências da resposta</h4>'
@@ -124,7 +135,7 @@ def build_ui(agent: EmporioAgent) -> gr.Blocks:
     settings = agent.settings
     sample = settings.uses_sample_data
     data_label = "Dados sintéticos (públicos)" if sample else "Dados originais do desafio"
-    mode_label = f"Gemini · {settings.gemini_model}" if agent.mode == "gemini" else "Modo determinístico (sem LLM)"
+    mode_label = agent.model_label if agent.mode != "offline" else "Modo determinístico (sem LLM)"
     actions = SAMPLE_QUICK_ACTIONS if sample else QUICK_ACTIONS
     catalog = agent.catalog
     categories = ["Todas"] + list(catalog.categories["category"])
@@ -192,6 +203,17 @@ def build_ui(agent: EmporioAgent) -> gr.Blocks:
         return pd.DataFrame(rows, columns=["Produto", "Categoria", "Preço", "De", "Promoção", "PIX", "Cartão",
                                            "Situação", "Estoque"])
 
+    def policy_search(query: str) -> str:
+        if not query or not query.strip():
+            return "<p class='note'>Digite uma dúvida para ver quais seções do manual o agente recupera.</p>"
+        hits = agent.policies.search(query, top_k=3)
+        if not hits:
+            return ("<p class='note'>Nenhuma seção relevante encontrada — o agente trataria a pergunta como fora do "
+                    "escopo das políticas.</p>")
+        return "".join(f'<div class="policy-hit"><span class="score">BM25 {h["score"]:.2f}</span>'
+                       f'<span class="cite">{html.escape(h["citation"])}</span> — <b>{html.escape(h["title"])}</b>'
+                       f'<pre>{html.escape(h["text"])}</pre></div>' for h in hits)
+
     def promotions_table() -> pd.DataFrame:
         rows = [{"Produto": r["product"], "Campanha": r["campaign"], "Desconto": f"{r['discount_percent']:g}%",
                  "De": brl(r["list_price"]), "Por": brl(r["promotional_price"]),
@@ -249,6 +271,19 @@ def build_ui(agent: EmporioAgent) -> gr.Blocks:
                                      column_widths=["22%", "11%", "10%", "9%", "13%", "10%", "10%", "9%", "6%"])
                 gr.Markdown("#### 💸 Promoções ativas")
                 gr.Dataframe(value=promotions_table(), interactive=False, wrap=True, elem_id="promo-table")
+            with gr.Tab("📜 Políticas"):
+                gr.Markdown("Veja **o que o agente recupera do manual de políticas** (RAG) antes de responder: as 3 "
+                            "seções mais relevantes, com seção e página para citação.")
+                with gr.Row():
+                    pquery = gr.Textbox(label="Pergunta sobre políticas", scale=5,
+                                        placeholder="ex.: posso devolver um produto comprado online?")
+                    pbtn = gr.Button("Buscar no manual", variant="primary", scale=1)
+                gr.Examples(["Me arrependi da compra, posso devolver?", "Qual o prazo de garantia?",
+                             "O desconto do PIX vale em produto em promoção?", "Frete para outra cidade",
+                             "Posso parcelar em 12x?", "Can I return an item?"], inputs=pquery, label="Exemplos")
+                presults = gr.HTML(policy_search(""))
+                with gr.Accordion(f"Todas as {len(agent.policies.chunks)} seções indexadas", open=False):
+                    gr.Markdown("\n".join(f"- **{c.citation()}** — {c.title}" for c in agent.policies.chunks))
             with gr.Tab("🧠 Como funciona"):
                 with gr.Row():
                     with gr.Column(scale=5):
@@ -266,6 +301,14 @@ def build_ui(agent: EmporioAgent) -> gr.Blocks:
                     with gr.Column(scale=4):
                         gr.Markdown(f"### Achados de qualidade dos dados\n{findings}\n\n"
                                     f"### Conflitos encontrados no manual\n{conflicts}\n\n"
+                                    "### Modelos suportados\n"
+                                    "| Modo | Quando é usado |\n|---|---|\n"
+                                    "| **Gemini** (online, `google-genai`) | `GEMINI_API_KEY` configurada |\n"
+                                    "| **Local / OpenAI-compatível** (Ollama, LM Studio, llama.cpp — modelos do "
+                                    "Hugging Face) | `LOCAL_LLM_BASE_URL` configurada |\n"
+                                    "| **Determinístico** (sem LLM) | sem modelo, falha do provedor ou resposta reprovada "
+                                    "na checagem de fundamentação |\n\n"
+                                    f"**Ativo agora:** {html.escape(mode_label)}\n\n"
                                     f"### Fontes\n- {len(agent.policies.chunks)} seções indexadas de "
                                     f"`{settings.policy_path.name}`\n- {agent.store.report.row_counts.get('products', 0)} "
                                     f"produtos, {agent.store.report.row_counts.get('orders', 0)} pedidos")
@@ -276,6 +319,8 @@ def build_ui(agent: EmporioAgent) -> gr.Blocks:
         for chip, (_, question) in zip(chips, actions):
             chip.click(lambda q=question: q, None, box).then(respond, [box, chatbot, session],
                                                              [box, chatbot, session, panel])
+        pbtn.click(policy_search, pquery, presults)
+        pquery.submit(policy_search, pquery, presults)
         filters = [cat, price, only, query]
         for component in filters:
             component.change(catalog_table, filters, table)

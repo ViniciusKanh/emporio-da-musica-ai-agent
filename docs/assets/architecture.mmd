@@ -1,7 +1,7 @@
 flowchart TB
     U["Customer message<br/>Gradio · CLI · Colab"] --> G["Input guardrails<br/>prompt injection · bulk-data requests · unauthorized actions"]
     G --> A{"EmporioAgent<br/>mode selection"}
-    A -- "API key present" --> L["Gemini (google-genai)<br/>native function calling<br/>e-mails tokenised"]
+    A -- "Gemini key or local<br/>endpoint configured" --> L["LLM with function calling<br/>Gemini (online) or local model<br/>(Ollama · LM Studio · HF weights)<br/>e-mails tokenised"]
     A -- "no key · provider error ·<br/>grounding failure" --> O["Offline engine<br/>multi-intent router + grounded templates"]
     L -- "function calls" --> T
     O -- "direct calls" --> T
