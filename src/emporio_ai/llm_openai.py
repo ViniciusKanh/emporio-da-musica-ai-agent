@@ -46,7 +46,14 @@ def http_post_json(url: str, payload: dict | None, headers: dict[str, str], time
         with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310 - URL is user-configured
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
-        error = LLMProviderError(f"HTTP {exc.code} from {url}")
+        detail = ""
+        try:  # e.g. Ollama: {"error": "model \"x\" not found, try pulling it first"}
+            body = json.loads(exc.read().decode("utf-8", "replace") or "{}")
+            err = body.get("error") if isinstance(body, dict) else None
+            detail = str(err.get("message") if isinstance(err, dict) else err or "")[:200]
+        except Exception:  # noqa: BLE001 - the body is only a hint
+            pass
+        error = LLMProviderError(f"HTTP {exc.code} from {url}" + (f": {detail}" if detail else ""))
         error.code = exc.code  # type: ignore[attr-defined] - lets the agent recognise 429 (quota / rate limit)
         raise error from exc
     except (urllib.error.URLError, TimeoutError, OSError) as exc:

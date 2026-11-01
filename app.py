@@ -438,6 +438,12 @@ def build_ui(agent: EmporioAgent) -> gr.Blocks:
             meter.record(which, call, ok=False)
             detail = html.escape(str(exc).replace(cfg.gemini_api_key or "\0", "***")[:220])
             status = f'<span class="status-err">✖ Falhou:</span> {html.escape(type(exc).__name__)} — {detail}'
+            if which == "local" and "404" in str(exc):
+                status += ("<br><small>404 = o servidor não tem esse modelo. Clique em <b>Detectar modelos</b> e "
+                           "escolha um da lista, ou confira o nome com <code>ollama list</code>.</small>")
+            elif which == "local" and "cannot reach" in str(exc):
+                status += ("<br><small>Servidor local fora do ar: abra o Ollama/LM Studio (ou rode "
+                           "<code>ollama serve</code>) e confira a URL.</small>")
         return f'<div class="notice summary">{status}</div>', usage_html(agent, session_id)
 
     def list_models(which: str, current: str, *values):
