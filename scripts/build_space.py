@@ -48,7 +48,9 @@ https://github.com/ViniciusKanh/emporio-da-musica-ai-agent
 
 This demo runs on the **synthetic sample data** of the repository (the original challenge files are not public).
 With the `GEMINI_API_KEY` secret configured the agent uses Gemini with function calling; otherwise it answers with
-the deterministic engine. The evidence panel shows which one answered and which sources were used.
+the deterministic engine. The evidence panel shows which one answered, the sources used and the tokens spent.
+Visitors can also paste their own Gemini key in the "Configurações" tab: it applies only to their browser session
+and is kept in memory (never written to disk or logs). Set `GEMINI_TOKEN_BUDGET` to cap tokens per visitor session.
 """
 
 
@@ -59,6 +61,7 @@ def main() -> int:
     shutil.copy(ROOT / "app.py", OUT / "app.py")
     shutil.copytree(ROOT / "src", OUT / "src", ignore=shutil.ignore_patterns("__pycache__"))
     shutil.copytree(ROOT / "data" / "sample", OUT / "data" / "sample")
+    shutil.copytree(ROOT / "assets", OUT / "assets")
     (OUT / "docs" / "assets").mkdir(parents=True)
     shutil.copy(ROOT / "docs" / "assets" / "architecture.png", OUT / "docs" / "assets" / "architecture.png")
     requirements = [line for line in (ROOT / "requirements.txt").read_text(encoding="utf-8").splitlines()
