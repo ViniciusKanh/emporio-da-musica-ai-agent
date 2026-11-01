@@ -41,7 +41,8 @@ INTENT_PATTERNS: dict[str, list[str]] = {
                 r"\bpersonal data\b", r"\bexcluir (meus )?dados", r"\bdelete my data"],
     "human": [r"\breclama", r"\batendente", r"\bhumano\b", r"\bfalar com (alguem|uma pessoa|o gerente|gerente)",
               r"\bgerente\b", r"\bprocon\b", r"\bpessim", r"\babsurd", r"\bhuman\b", r"\breal person",
-              r"\bmanager\b", r"\bcomplain", r"\bsupervisor"],
+              r"\bmanager\b", r"\bcomplain", r"\bsupervisor", r"\b(talk|speak) (to|with) (someone|somebody|a person|"
+              r"an agent|an attendant|a representative|your team|the team|staff)", r"\bfalar com (a equipe|um atendente)"],
     "about": [r"sobre a loja", r"quem (sao|e) voces", r"\bhistoria da loja", r"\bmissao\b", r"\babout (the|your) store"],
     "catalog_overview": [r"o que voces vendem", r"\bquais (produtos|instrumentos|categorias)", r"\bcatalogo\b",
                          r"what do you sell", r"\bcategories\b", r"\bwhat (products|instruments)"],

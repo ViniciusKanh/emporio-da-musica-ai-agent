@@ -87,6 +87,8 @@ class Settings:
     gemini_token_budget: int | None = None
     local_token_budget: int | None = None
     assistant_name: str = "Vinicius"
+    # "en": always answer in English (understands Portuguese) | "auto": answer in the customer's language
+    reply_language: str = "en"
 
     @property
     def uses_sample_data(self) -> bool:
@@ -116,6 +118,7 @@ class Settings:
             gemini_token_budget=_optional_int(os.getenv("GEMINI_TOKEN_BUDGET")),
             local_token_budget=_optional_int(os.getenv("LOCAL_LLM_TOKEN_BUDGET")),
             assistant_name=(os.getenv("EMPORIO_ASSISTANT_NAME") or "Vinicius").strip()[:40] or "Vinicius",
+            reply_language="auto" if os.getenv("EMPORIO_REPLY_LANGUAGE", "en").strip().lower() == "auto" else "en",
         )
 
 

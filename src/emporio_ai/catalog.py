@@ -58,6 +58,20 @@ class ProductMatch:
     by_brand: bool = False  # matched only by brand name (model not recognised)
 
 
+_SPEC_WORDS_EN = {"cedro": "cedar", "mogno": "mahogany", "sólido": "solid", "solido": "solid",
+                  "jacarandá": "rosewood", "acácia": "acacia", "preto": "black", "verde": "green"}
+
+
+def _spec_en(value: str) -> str:
+    """Translate the Portuguese words used in the specs column; other values (brand woods, colours) are kept."""
+    words = value.split()
+    out = [(_SPEC_WORDS_EN.get(w.lower(), w)).capitalize() if w.lower() in _SPEC_WORDS_EN else w for w in words]
+    # "Cedro Sólido" -> "Solid Cedar"
+    if len(out) >= 2 and out[-1] == "Solid":
+        out = ["Solid"] + out[:-1]
+    return " ".join(out)
+
+
 def availability_of(status: str, stock: int) -> str:
     if status == SELLABLE_STATUS:
         return "available" if stock > 0 else "out_of_stock"
@@ -237,6 +251,8 @@ class CatalogService:
     def spec_summary(specs: dict[str, str], lang: str = "pt") -> str:
         """Human-readable summary of the JSON specs column (only fields present in the data)."""
         pt = lang != "en"
+        if not pt:  # data values are partly Portuguese (e.g. "Cedro Sólido"): translate the known words
+            specs = {k: _spec_en(v) if isinstance(v, str) else v for k, v in specs.items()}
         parts = []
         if specs.get("top"):
             parts.append(("tampo " if pt else "top: ") + specs["top"])

@@ -90,7 +90,7 @@ def test_price_without_tool_call_is_rejected():
 def test_provider_error_falls_back():
     agent, _ = make_agent([RuntimeError("quota exceeded")])
     response = agent.ask("Qual o horário de sábado?")
-    assert response.mode == "offline" and "Sábado" in response.text
+    assert response.mode == "offline" and "Saturday" in response.text
     assert any("LLM unavailable" in w for w in response.warnings)
 
 

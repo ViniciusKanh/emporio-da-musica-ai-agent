@@ -16,7 +16,7 @@ from typing import Any, Callable
 
 from .business_rules import BusinessRules, installment_plan, metro_shipping_fee, pix_price, round_money
 from .catalog import CatalogService
-from .guardrails import redact
+from .guardrails import redact, sanitize_untrusted
 from .orders import OrderService
 from .policies import PolicyKnowledgeBase
 from .text_utils import normalize
@@ -59,6 +59,7 @@ class ToolBox:
         self.trace: list[ToolCall] = []
         self.email_resolver: Callable[[str], str] = lambda value: value
         self.clock: Callable[[], Any] | None = None
+        self.lang = "pt"  # language of the labels in tool results ("en" when the agent always answers in English)
         self.registry: dict[str, Callable[..., dict]] = {
             "search_products": self.search_products,
             "get_product_details": self.get_product_details,
@@ -84,6 +85,8 @@ class ToolBox:
                 result = {"error": str(exc), "sources": []}
             except TypeError as exc:  # unexpected/missing argument names from the model
                 result = {"error": f"invalid arguments: {exc}", "sources": []}
+        # Data fields (descriptions, order notes...) are untrusted: strip instruction-like text (indirect injection).
+        result = sanitize_untrusted(result)
         safe_args = {k: (redact(str(v)) if isinstance(v, str) else v) for k, v in arguments.items()}
         self.trace.append(ToolCall(name, safe_args, "error" not in result,
                                    round((time.perf_counter() - start) * 1000, 2), result.get("sources", [])))
@@ -126,7 +129,7 @@ class ToolBox:
                         "min_price": lo, "keywords": kws, "brand": brand},
             "total_matches": total,
             "unavailable_matches_hidden": unavailable_matches,
-            "products": [self.catalog.product_view(int(pid)) for pid in frame["product_id"]],
+            "products": [self.catalog.product_view(int(pid), self.lang) for pid in frame["product_id"]],
             "sources": ["products.csv", "categories.csv", "promotions.csv"],
         }
 
@@ -145,9 +148,9 @@ class ToolBox:
                     "sources": ["products.csv"]}
         products = []
         for pid in ids[:MAX_RESULTS]:
-            view = self.catalog.product_view(pid)
+            view = self.catalog.product_view(pid, self.lang)
             if view["availability"] != "available":
-                view["alternatives"] = [self.catalog.product_view(a) for a in self.catalog.alternatives(pid)]
+                view["alternatives"] = [self.catalog.product_view(a, self.lang) for a in self.catalog.alternatives(pid)]
             products.append(view)
         return {"found": True, "exact_match": exact, "products": products,
                 "sources": ["products.csv", "promotions.csv", "categories.csv"]}
@@ -158,7 +161,7 @@ class ToolBox:
         if product:
             match = self.catalog.match_products(product)
             for pid in match.product_ids[:MAX_RESULTS]:
-                view = self.catalog.product_view(pid)
+                view = self.catalog.product_view(pid, self.lang)
                 history = self.catalog.promotions_for_product(pid)
                 rows.append({"product": view["name"], "availability": view["availability"],
                              "list_price": view["list_price"], "final_price": view["final_price"],
@@ -177,13 +180,13 @@ class ToolBox:
                 return {"found": False, "message": f"No campaign named '{promotion_name}' in promotions.csv",
                         "sources": ["promotions.csv"]}
             for r in history.itertuples():
-                view = self.catalog.product_view(int(r.product_id))
+                view = self.catalog.product_view(int(r.product_id), self.lang)
                 rows.append({"campaign": r.description, "product": view["name"], "active": bool(r.is_active),
                              "discount_percent": float(r.discount_percent), "availability": view["availability"],
                              "current_final_price": view["final_price"], "list_price": view["list_price"]})
             return {"found": True, "promotions": rows, "sources": ["promotions.csv", "products.csv"]}
         for _, row in self.catalog.active_promotions().iterrows():
-            view = self.catalog.product_view(int(row["product_id"]))
+            view = self.catalog.product_view(int(row["product_id"]), self.lang)
             rows.append({"product": view["name"], "campaign": view["promotion"]["name"],
                          "discount_percent": view["promotion"]["discount_percent"], "list_price": view["list_price"],
                          "promotional_price": view["final_price"], "availability": view["availability"],
@@ -203,7 +206,7 @@ class ToolBox:
                 return {"found": True, "exact_match": False,
                         "candidates": [self.catalog.products.at[p, "name"] for p in match.product_ids[:MAX_RESULTS]],
                         "message": "Ambiguous product, ask the customer which one", "sources": ["products.csv"]}
-            view = self.catalog.product_view(match.product_ids[0])
+            view = self.catalog.product_view(match.product_ids[0], self.lang)
             promo = "promotion" in view
             total = view["final_price"]
             result = {"product": view["name"], "availability": view["availability"], "list_price": view["list_price"],
@@ -275,7 +278,7 @@ class ToolBox:
     def get_order_status(self, order_id: int, email: str) -> dict:
         """Order status for an order number + the e-mail registered on that order (both required)."""
         resolved = self.email_resolver(str(email or ""))
-        lookup = self.orders.lookup(order_id, resolved)
+        lookup = self.orders.lookup(order_id, resolved, self.lang)
         if not lookup.verified:
             return {"verified": False, "reason": lookup.reason,
                     "message": "Order number and e-mail do not match our records, or input is invalid. "

@@ -53,8 +53,8 @@ def test_tool_trace_and_logs_do_not_contain_raw_emails(agent):
 
 
 def test_redaction_and_vault():
-    assert "[e-mail removido]" in redact("meu email é a.b@c.com")
-    assert "[telefone removido]" in redact("ligue (67) 99812-3456")
+    assert "[e-mail removed]" in redact("meu email é a.b@c.com")
+    assert "[phone removed]" in redact("ligue (67) 99812-3456")
     vault = PiiVault()
     text = vault.tokenize("pedido 8 Ana@Example.com")
     assert "<EMAIL_1>" in text and "@" not in text

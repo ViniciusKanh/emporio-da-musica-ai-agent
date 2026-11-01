@@ -88,7 +88,7 @@ class PolicyChunk:
             else f"p. {self.pages[0]}"
 
     def citation(self) -> str:
-        return f"Manual de Políticas §{self.section} ({self.page_label})"
+        return f"Policy Manual §{self.section} ({self.page_label})"
 
 
 @dataclass

@@ -20,6 +20,8 @@ class ConversationState:
     verified_order_view: dict | None = field(default=None, repr=False)
     failed_order_attempts: int = 0
     turns: int = 0
+    strikes: int = 0  # messages flagged by the guardrails in this session
+    recent: list = field(default_factory=list, repr=False)  # timestamps for the rate limit
     # Provider-neutral transcript of (role, text) pairs, e-mails already tokenised. Every LLM provider builds its
     # own history from it, so the conversation continues when the agent switches provider (e.g. Gemini -> local).
     transcript: list = field(default_factory=list, repr=False)

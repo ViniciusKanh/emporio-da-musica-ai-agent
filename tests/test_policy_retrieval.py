@@ -14,7 +14,7 @@ from emporio_ai.policies import PolicyKnowledgeBase
 def test_sample_retrieval_ranks_expected_section_first(agent, query, section):
     hits = agent.policies.search(query)
     assert hits and hits[0]["section"] == section
-    assert hits[0]["citation"].startswith("Manual de Políticas §")
+    assert hits[0]["citation"].startswith("Policy Manual §")
 
 
 def test_unrelated_query_returns_no_policy(agent):

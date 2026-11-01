@@ -60,11 +60,42 @@ def _t(lang: str, pt: str, en: str) -> str:
     return en if lang == "en" else pt
 
 
+_CAMPAIGN_EN = [
+    (r"Aniversário da Loja", "Store anniversary"), (r"Volta às Aulas", "Back to school"),
+    (r"Queima de Estoque", "Stock clearance"), (r"Semana do Músico", "Musician's week"),
+    (r"descontos de (\d+)% a (\d+)%", r"\1% to \2% off"), (r"em todo o catálogo", "on the whole catalog"),
+    (r"em itens selecionados", "on selected items"),
+    (r"descontos especiais em instrumentos para estudantes", "special discounts on instruments for students"),
+    (r"promoções pontuais para renovação de catálogo", "one-off promotions to renew the catalog"),
+    (r"promoções na semana do Dia do Músico \((\d+) de novembro\)", r"promotions in the week of Musician's Day "
+     r"(\1 November)"),
+    (r"\bJaneiro\b", "January"), (r"\bFevereiro\b", "February"), (r"\bAgosto\b", "August"),
+    (r"\bNovembro\b", "November"), (r"\bDezembro\b", "December"),
+]
+
+
+def _campaign_en(line: str) -> str:
+    """English rendering of a §6.1 campaign line (known phrases only; unknown text is kept as written)."""
+    for pattern, repl in _CAMPAIGN_EN:
+        line = re.sub(pattern, repl, line)
+    return line
+
+
+def _hours_in(lang: str, days: str, hours: str) -> tuple[str, str]:
+    """Opening hours as written in the manual, translated to English when needed."""
+    if lang != "en":
+        return days, hours
+    days = {"Segunda a Sexta-feira": "Monday to Friday", "Sábado": "Saturday",
+            "Domingo e Feriados": "Sundays and holidays"}.get(days, days)
+    return days, hours.replace("às", "to").replace("Fechado", "Closed")
+
+
 class OfflineEngine:
     def __init__(self, tools: ToolBox, router: IntentRouter, rules: BusinessRules | None = None,
-                 assistant_name: str = "Vinicius"):
+                 assistant_name: str = "Vinicius", reply_language: str = "en"):
         self.tools, self.router = tools, router
         self.assistant_name = assistant_name
+        self.reply_language = reply_language  # "en" = always English; "auto" = customer's language
         self.rules = rules or tools.rules
         self.kb = tools.policies
         from .store_hours import STORE_TZ
@@ -74,6 +105,8 @@ class OfflineEngine:
     # ================================================================ entry
     def respond(self, message: str, state: ConversationState) -> EngineResult:
         text = (message or "").strip()
+        if self.reply_language == "en":
+            state.lang = "en"
         if not text:
             return EngineResult(_t(state.lang, "Pode me contar como posso ajudar? 🙂",
                                    "How can I help you today?"), ["empty"])
@@ -81,6 +114,8 @@ class OfflineEngine:
             text = text[:MAX_MESSAGE_CHARS]
         guard = inspect_message(text)
         route = self.router.route(text, default_lang=state.lang)
+        if self.reply_language == "en":
+            route.lang = "en"
         state.lang = route.lang
         lang = route.lang
         self._resolve_context(route, state)
@@ -91,12 +126,17 @@ class OfflineEngine:
         intents = list(route.intents)
 
         if guard.injection:
-            intents.insert(0, "prompt_injection")
-            sections.append(_t(lang,
-                "Não posso ignorar ou alterar minhas regras de atendimento, nem revelar instruções internas. "
-                "Sigo respondendo só com base nos dados e nas políticas da loja.",
-                "I can't ignore or change my service rules or reveal internal instructions. "
-                "I only answer based on the store's data and policies."))
+            intents[:0] = ["prompt_injection"] + [f"security:{c}" for c in guard.categories]
+            if "secret_request" in guard.categories:
+                sections.append(_t(lang,
+                    "Não compartilho chaves de acesso, senhas, variáveis de ambiente nem configurações internas.",
+                    "I can't share access keys, passwords, environment variables or internal configuration."))
+            else:
+                sections.append(_t(lang,
+                    "Não posso ignorar ou alterar minhas regras de atendimento, mudar de papel, executar comandos ou "
+                    "revelar instruções internas. Sigo respondendo só com base nos dados e nas políticas da loja.",
+                    "I can't ignore or change my service rules, take on another role, run commands or reveal "
+                    "internal instructions. I only answer based on the store's data and policies."))
         if guard.bulk_data_request:
             intents.insert(0, "data_exfiltration")
             sections.append(_t(lang,
@@ -186,16 +226,19 @@ class OfflineEngine:
 
         products = ", ".join(self.tools.catalog.products.at[p, "name"] for p in (route.multi_ids or route.product_ids)[:3])
         order = state.verified_order_view or {}
-        parts = [f"Motivo: {', '.join(i for i in intents if i not in {'price', 'availability'})}",
-                 f"Idioma: {'inglês' if route.lang == 'en' else 'português'}"]
+        from .text_utils import detect_language
+
+        detected = "English" if detect_language(route.text, default="pt") == "en" else "Portuguese"
+        parts = [f"Reason: {', '.join(i for i in intents if i not in {'price', 'availability'})}",
+                 f"Customer wrote in: {detected}"]
         if products:
-            parts.append(f"Produto(s): {products}")
+            parts.append(f"Product(s): {products}")
         if order:
-            parts.append(f"Pedido verificado: #{order.get('order_id')} ({order.get('status_label')})")
+            parts.append(f"Verified order: #{order.get('order_id')} ({order.get('status_label')})")
         elif route.order_id:
-            parts.append(f"Pedido citado (não verificado): #{route.order_id}")
-        parts.append(f"Mensagem do cliente: \"{redact(route.text)[:240]}\"")
-        parts.append(f"Prazo de retorno para reclamações: {self.rules.complaint_reply_hours} horas úteis (§7.3)")
+            parts.append(f"Order mentioned (not verified): #{route.order_id}")
+        parts.append(f"Customer message: \"{redact(route.text)[:240]}\"")
+        parts.append(f"Reply deadline for complaints: {self.rules.complaint_reply_hours} business hours (§7.3)")
         return "\n".join(parts)
 
     # ========================================================== context
@@ -482,7 +525,7 @@ class OfflineEngine:
                 re.split(r"(?<=[.!?])\s", view["description"].strip())[-1]
             line = f"{i}. {self._short_line(view, lang)[2:]}"
             if reason:
-                line += "\n   " + _t(lang, f"Por quê: _{reason}_", f"Why: _{reason}_ (catalog description)")
+                line += "\n   " + _t(lang, f"Por quê: _{reason}_", f"Why: _{reason}_ (catalog description, in Portuguese)")
             items.append(line)
         outro = _t(lang, "A indicação usa a descrição cadastrada de cada produto, o preço e o estoque atuais. Quer que eu "
                          "compare duas delas lado a lado?",
@@ -594,7 +637,7 @@ class OfflineEngine:
         body += "\n\n" + _t(lang, f"Pelo nosso manual ({section.citation()}): _{line}_ Quando a campanha estiver ativa "
                                    "no sistema, os preços promocionais aparecem aqui — antes disso não consigo garantir "
                                    "desconto.",
-                             f"According to our manual ({section.citation()}, in Portuguese): _{line}_ Once the "
+                             f"According to our manual ({section.citation()}): _{_campaign_en(line)}_ Once the "
                              "campaign is active in our system, the promotional prices will show up here — until then "
                              "I can't promise a discount.")
         return body, sources + [section.citation()]
@@ -739,9 +782,13 @@ class OfflineEngine:
         return body, srcs, False
 
     # ========================================================== policies
-    def _excerpt(self, chunk, lang: str, max_lines: int = 8) -> str:
+    def _excerpt(self, chunk, lang: str, max_lines: int = 8, supporting: bool = False) -> str:
+        """Quote the manual. ``supporting`` quotes back up an answer already written in full: in English only the
+        citation is given (the manual is in Portuguese and its content was already rendered in English)."""
         if chunk is None:
             return ""
+        if supporting and lang == "en":
+            return f"_Source: {chunk.citation()}._"
         lines = [l for l in chunk.text.splitlines()[1:] if l.strip()][:max_lines]
         head = _t(lang, f"Trecho do manual — {chunk.citation()}:", f"Policy excerpt (Portuguese) — {chunk.citation()}:")
         return head + "\n" + "\n".join(f"> {l.lstrip('- ').strip()}" for l in lines)
@@ -791,7 +838,7 @@ class OfflineEngine:
         if ineligible and not_eligible:
             parts.append(self._excerpt(not_eligible, lang))
         else:
-            parts.append(self._excerpt(regret, lang, max_lines=4))
+            parts.append(self._excerpt(regret, lang, max_lines=4, supporting=bool(parts)))
         srcs = [c.citation() for c in ((not_eligible,) if ineligible else (regret,)) if c]
         if preference and not ineligible and re.search(r"\b(troca|trocar|exchange|swap|cor|modelo|tamanho|color|size)\b", route.norm):
             srcs.append(preference.citation())
@@ -866,7 +913,7 @@ class OfflineEngine:
             else:
                 parts.append(_t(lang, f"Com {days} dias, o caminho costuma ser a garantia do fabricante; a loja pode intermediar.",
                                 f"At {days} days the usual path is the manufacturer's warranty; the store can mediate."))
-        parts.append(self._excerpt(defect, lang, max_lines=3))
+        parts.append(self._excerpt(defect, lang, max_lines=3, supporting=bool(parts)))
         if not parts:
             parts += [self._excerpt(legal, lang, max_lines=3)]
         if excluded and self._doc_says("desgaste natural"):
@@ -948,11 +995,7 @@ class OfflineEngine:
             return None
         lines = []
         for item in info["opening_hours"]:
-            days, hours = item["days"], item["hours"]
-            if lang == "en":
-                days = {"Segunda a Sexta-feira": "Monday to Friday", "Sábado": "Saturday",
-                        "Domingo e Feriados": "Sundays and holidays"}.get(days, days)
-                hours = hours.replace("às", "to").replace("Fechado", "Closed")
+            days, hours = _hours_in(lang, item["days"], item["hours"])
             lines.append(f"- {days}: {hours}")
         sec = self.kb.find_section("Horário de Funcionamento")
         note = _t(lang, "O WhatsApp segue o mesmo horário. Em datas especiais (Black Friday, Aniversário da Loja, Natal) "
@@ -1055,7 +1098,7 @@ class OfflineEngine:
         info = self.tools.policies.store_info
         whats = [n for n, t in info.phones if "WhatsApp" in t]
         number = whats[-1] if whats else (info.phones[0][0] if info.phones else "")
-        hours = "; ".join(f"{d} {h}" for d, h in info.hours[:2])
+        hours = "; ".join("{} {}".format(*_hours_in(lang, d, h)) for d, h in info.hours[:2])
         line = _t(lang, f"Fale com nossa equipe pelo WhatsApp {number}" + (f" ({hours})." if hours else "."),
                   f"Please contact our team on WhatsApp {number}" + (f" ({hours})." if hours else "."))
         # Manual §7.1: outside business hours the virtual assistant must say when the team will be back.

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
@@ -36,6 +37,10 @@ from .usage import PROVIDER_LABELS, CallUsage, UsageMeter, is_quota_error
 
 logger = logging.getLogger(__name__)
 MAX_SESSIONS = 500
+MAX_MESSAGE_CHARS = 2000
+MAX_STRIKES = 3  # flagged messages after which the LLM is no longer used in the session
+RATE_LIMIT_MESSAGES = 20
+RATE_WINDOW_SECONDS = 60.0
 
 
 @dataclass
@@ -130,14 +135,15 @@ class EmporioAgent:
             from .llm import GeminiAgent  # optional dependency
 
             return GeminiAgent(api_key=config.gemini_api_key, model=config.gemini_model, max_tool_rounds=rounds,
-                               assistant_name=name)
+                               assistant_name=name, reply_language=self.settings.reply_language)
 
         def local():
             from .llm_openai import OpenAICompatibleAgent
 
             return OpenAICompatibleAgent(base_url=config.local_base_url, model=config.local_model,
                                          api_key=config.local_api_key, max_tool_rounds=rounds,
-                                         timeout=config.local_timeout, assistant_name=name)
+                                         timeout=config.local_timeout, assistant_name=name,
+                                         reply_language=self.settings.reply_language)
 
         primary = config.primary
         has_gemini, has_local = bool(config.gemini_api_key), bool(config.local_base_url)
@@ -215,7 +221,9 @@ class EmporioAgent:
                 self._sessions[session_id] = fresh
 
     def _toolbox(self) -> ToolBox:
-        return ToolBox(self.catalog, self.orders, self.policies, self.rules)
+        tools = ToolBox(self.catalog, self.orders, self.policies, self.rules)
+        tools.lang = "en" if self.settings.reply_language == "en" else "pt"
+        return tools
 
     # ---------------------------------------------------------------- ask
     def ask(self, message: str, session_id: str = "default") -> AgentResponse:
@@ -223,16 +231,29 @@ class EmporioAgent:
         state.turns += 1
         logger.info("session=%s turn=%d message=%s", session_id, state.turns, redact(message or "")[:200])
         tools = self._toolbox()
-        engine = OfflineEngine(tools, self.router, self.rules, assistant_name=self.settings.assistant_name)
+        engine = OfflineEngine(tools, self.router, self.rules, assistant_name=self.settings.assistant_name,
+                               reply_language=self.settings.reply_language)
         if self.clock is not None:
             engine.clock = tools.clock = self.clock
         warnings: list[str] = []
         usage_report: dict[str, dict] = {}
         meter = self.session_usage(session_id)
 
-        guard = inspect_message(message or "")
+        message = (message or "")[:MAX_MESSAGE_CHARS]
+        limited = self._rate_limited(state)
+        if limited:
+            return limited
+        guard = inspect_message(message)
+        if guard.flagged:
+            state.strikes += 1
+            logger.warning("security session=%s categories=%s obfuscated=%s bulk=%s strikes=%d", session_id,
+                           guard.categories, guard.obfuscated, guard.bulk_data_request, state.strikes)
+        llm_locked = state.strikes >= MAX_STRIKES
+        if llm_locked and not guard.flagged:
+            warnings.append("LLM disabled for this session after repeated manipulation attempts; deterministic "
+                            "answers only")
         response: AgentResponse | None = None
-        if not guard.flagged and not guard.action_request:
+        if not guard.flagged and not guard.action_request and not llm_locked:
             for index, provider in enumerate(self.session_providers(session_id)):
                 name = getattr(provider, "name", "gemini")
                 label = PROVIDER_LABELS.get(name, name)
@@ -263,7 +284,7 @@ class EmporioAgent:
                 logger.warning("grounding check failed (%s): %s", name, result.grounding_issues)
                 tools.reset_trace()
         if response is None:
-            if warnings:
+            if warnings and not llm_locked:
                 warnings.append("deterministic answer returned instead")
             offline = engine.respond(message, state)
             response = AgentResponse(offline.text, "offline", offline.intents, [vars(c) for c in tools.trace],
@@ -273,6 +294,17 @@ class EmporioAgent:
         if not guard.flagged:
             self._remember(state, message, response.text)
         return response
+
+    @staticmethod
+    def _rate_limited(state) -> AgentResponse | None:
+        """Simple per-session flood protection (protects the LLM quota and the tools)."""
+        now = time.monotonic()
+        state.recent = [t for t in state.recent if now - t < RATE_WINDOW_SECONDS] + [now]
+        if len(state.recent) <= RATE_LIMIT_MESSAGES:
+            return None
+        return AgentResponse("You are sending messages very quickly. Please wait a few seconds and try again.",
+                             "offline", ["rate_limited"], warnings=["rate limit reached for this session"],
+                             provider_label="Deterministic engine")
 
     @staticmethod
     def _remember(state, message: str, answer: str) -> None:

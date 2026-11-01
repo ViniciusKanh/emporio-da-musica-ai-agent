@@ -25,14 +25,18 @@ PAYMENT_LABELS = {
 }
 
 
-def payment_label(code: str) -> str:
+PAYMENT_LABELS_EN = {"pix": "PIX", "debit": "debit card", "boleto": "boleto (bank slip)", "credit": "credit card"}
+
+
+def payment_label(code: str, lang: str = "pt") -> str:
     code = str(code).strip().lower()
-    if code in PAYMENT_LABELS:
-        return PAYMENT_LABELS[code]
+    labels = PAYMENT_LABELS_EN if lang == "en" else PAYMENT_LABELS
+    if code in labels:
+        return labels[code]
     match = re.fullmatch(r"credit_(\d+)x", code)
     if match:
-        return f"cartão de crédito em {match.group(1)}x"
-    return code or "não informado"
+        return f"credit card in {match.group(1)} installments" if lang == "en" else f"cartão de crédito em {match.group(1)}x"
+    return code or ("not informed" if lang == "en" else "não informado")
 
 
 @dataclass(frozen=True)
@@ -90,8 +94,8 @@ class OrderService:
             "status": status,
             "status_label": STATUS_LABELS.get(lang, STATUS_LABELS["pt"]).get(status, status),
             "total_brl": float(row["total_brl"]),
-            "payment_method": payment_label(row["payment_method"]),
-            "items": [{"product": self._names.get(int(r.product_id), f"produto #{int(r.product_id)}"),
+            "payment_method": payment_label(row["payment_method"], lang),
+            "items": [{"product": self._names.get(int(r.product_id), (f"product #{int(r.product_id)}" if lang == "en" else f"produto #{int(r.product_id)}")),
                        "quantity": int(r.quantity)} for r in items.itertuples()],
             "tracking_code": str(row.get("tracking_code", "") or "") or None,
             "estimated_delivery": str(row.get("estimated_delivery", "") or "") or None,

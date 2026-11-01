@@ -10,7 +10,7 @@ from emporio_ai.store_hours import STORE_TZ, open_status
 def test_typo_in_brand_is_corrected_and_disclosed(agent):
     response = agent.ask("Quanto custa o Aurorra C10?")
     assert "R$ 480,00" in response.text
-    assert "Entendi" in response.text and "Aurora" in response.text
+    assert "I understood" in response.text and "Aurora" in response.text
 
 
 def test_words_of_the_router_are_never_corrected(agent):
@@ -20,7 +20,7 @@ def test_words_of_the_router_are_never_corrected(agent):
 
 def test_product_card_shows_specs(agent):
     text = agent.ask("Quanto custa o Vento VD-90E?").text
-    assert "Especificações" in text and "cordas de aço" in text and "com captação" in text
+    assert "Specs" in text and "steel strings" in text and "with pickup" in text
 
 
 def test_side_by_side_comparison(agent):
@@ -28,12 +28,12 @@ def test_side_by_side_comparison(agent):
     assert "compare" in response.intents
     assert "| **Aurora C10 Nylon Natural** | **Vento VD-50 Dreadnought Natural** |" in response.text
     assert "R$ 480,00" in response.text and "R$ 1.035,00" in response.text
-    assert "Mais em conta entre os disponíveis: **Aurora C10" in response.text
+    assert "Most affordable in stock: **Aurora C10" in response.text
 
 
 def test_comparison_flags_unavailable_items(agent):
     text = agent.ask("qual a diferença entre o Sabiá S7 e o Aurora F20?").text
-    assert "Indisponível no momento: Sabiá S7" in text
+    assert "Not available right now: Sabiá S7" in text
 
 
 def test_two_products_without_compare_word_get_two_cards(agent):
@@ -52,12 +52,12 @@ def test_recommendation_for_beginner_respects_budget_and_stock(agent):
     assert "recommend" in response.intents
     assert "Aurora C10" in response.text  # description says "para iniciantes"
     assert "Sabiá S7" not in response.text and "Vento VD-90E" not in response.text  # out of stock / over budget
-    assert "Por quê" in response.text
+    assert "Why:" in response.text
 
 
 def test_recommendation_without_category_asks_which_instrument(agent):
     response = agent.ask("O que você recomenda para um iniciante?")
-    assert "Qual instrumento" in response.text
+    assert "Which instrument" in response.text
 
 
 def test_stage_recommendation_prefers_pickup(agent):
@@ -83,12 +83,12 @@ def test_hours_answer_includes_open_now(agent):
     engine = OfflineEngine(agent._toolbox(), agent.router)
     engine.clock = lambda: agent_engine_clock
     text = engine.respond("Vocês estão abertos agora?", agent.session("h")).text
-    assert "fechada" in text and "abre segunda às 10:00" in text
+    assert "closed" in text and "opens again Monday at 10:00" in text
 
 
 def test_description_brand_conflict_is_flagged(original_agent):
     text = original_agent.ask("Quanto custa o Korg Synth 1?").text
-    assert "cita a marca Roland" in text
+    assert "mentions Roland" in text
     assert any("different brands" in issue for issue in original_agent.store.report.issues)
 
 

@@ -69,10 +69,10 @@ class OpenAICompatibleAgent:
     def __init__(self, base_url: str, model: str, api_key: str | None = None, max_tool_rounds: int = 5,
                  timeout: float = 120.0, temperature: float = 0.2,
                  post: Callable[[str, dict | None, dict[str, str], float], dict] | None = None,
-                 assistant_name: str = "Vinicius"):
+                 assistant_name: str = "Vinicius", reply_language: str = "en"):
         self.base_url = base_url.rstrip("/")
         self.url = self.base_url + "/chat/completions"
-        self.system_prompt = build_system_prompt(assistant_name)
+        self.system_prompt = build_system_prompt(assistant_name, reply_language)
         self.model = model
         self.headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         self.max_tool_rounds = max_tool_rounds

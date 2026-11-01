@@ -26,19 +26,19 @@ def test_instrument_name_containing_accessory_word_is_not_an_accessory(original_
 def test_instrument_and_accessory_in_same_message(agent):
     response = agent.ask("Quero um violão até 700 e palhetas")
     assert {"product_search", "accessory"} <= set(response.intents)
-    assert "Aurora C10" in response.text and "acessórios" in response.text
+    assert "Aurora C10" in response.text and "accessories" in response.text
 
 
 # 2. Questions with two intents must get complete answers.
 def test_two_intents_price_and_hours(agent):
     response = agent.ask("Quanto custa o Aurora C10 e qual o horário de sábado?")
     assert "R$ 480,00" in response.text
-    assert "Sábado: 10:00 às 14:00" in response.text
+    assert "Saturday: 10:00 to 14:00" in response.text
 
 
 def test_two_intents_returns_and_payment(agent):
     response = agent.ask("Posso devolver um produto comprado online? E vocês parcelam no cartão?")
-    assert "7 dias" in response.text and "12x" in response.text
+    assert "7 calendar days" in response.text and "12x" in response.text
     assert {"returns", "payment"} <= set(response.intents)
 
 
@@ -63,12 +63,12 @@ def test_english_order_and_policy(agent):
 # 4. Out-of-stock products must never be announced as available.
 def test_out_of_stock_not_listed_and_flagged(agent):
     listing = agent.ask("Quais violões vocês têm?")
-    assert "Sabiá S7" not in listing.text.split("Obs.")[0]
+    assert "Sabiá S7" not in listing.text.split("Note:")[0]
     single = agent.ask("Tem o Sabiá S7?")
-    assert "sem estoque" in single.text and "✅" not in single.text.split("Opções")[0]
+    assert "out of stock" in single.text and "✅" not in single.text.split("Similar options")[0]
 
 
-@pytest.mark.parametrize("model,label", [("Sabiá SX-1", "Descontinuado"), ("Aurora C30", "Em breve")])
+@pytest.mark.parametrize("model,label", [("Sabiá SX-1", "Discontinued"), ("Aurora C30", "Coming soon")])
 def test_discontinued_and_coming_soon_are_not_sellable(agent, model, label):
     response = agent.ask(f"Quanto custa o {model}?")
     assert label in response.text
@@ -78,7 +78,7 @@ def test_discontinued_and_coming_soon_are_not_sellable(agent, model, label):
 # 5. Promotions must not be applied outside their validity.
 def test_inactive_promotion_is_reported_as_not_valid(agent):
     response = agent.ask("A promoção de Black Friday do Ipê UK-30 ainda vale?")
-    assert "não estão vigentes" in response.text
+    assert "are not valid now" in response.text
     assert "R$ 336,00" not in response.text  # 420 - 20% would be the invalid price
     assert "R$ 420,00" in response.text
 
@@ -92,7 +92,7 @@ def test_active_promotion_shows_original_price_and_percentage(agent):
 def test_pix_not_stacked_on_promotional_price(agent):
     response = agent.ask("Quanto fica o Vento VD-90E no pix?")
     assert "R$ 2.010,68" not in response.text  # 2116.50 * 0.95 would be stacking
-    assert "não" in response.text.lower() and "cumulativ" in response.text
+    assert "not" in response.text.lower() and "cumulative" in response.text
 
 
 def test_pix_discount_on_regular_price(agent):
@@ -115,7 +115,7 @@ def test_order_with_wrong_email_reveals_nothing(agent):
 
 def test_order_with_correct_email(agent):
     response = agent.ask("pedido 1002, meu e-mail é cliente.dois@example.com")
-    assert "BRSY0000002BR" in response.text and "enviado" in response.text
+    assert "BRSY0000002BR" in response.text and "shipped" in response.text
     assert "cliente.dois@example.com" not in response.text
     assert "Cliente Sintético" not in response.text  # no personal data echoed
 
@@ -123,12 +123,12 @@ def test_order_with_correct_email(agent):
 # 8. Unverified information must not be invented.
 def test_unknown_product_is_not_invented(agent):
     response = agent.ask("Quanto custa o Stradivarius Messiah?")
-    assert "Não encontrei" in response.text and not re.search(r"R\$ ?\d", response.text)
+    assert "I couldn't find" in response.text and not re.search(r"R\$ ?\d", response.text)
 
 
 def test_empty_category_is_reported_honestly(agent):
     response = agent.ask("Vocês têm flauta?")
-    assert "não temos itens" in response.text.lower()
+    assert "currently have no" in response.text.lower()
 
 
 def test_freight_outside_metro_is_not_invented(agent):
@@ -138,4 +138,4 @@ def test_freight_outside_metro_is_not_invented(agent):
 
 def test_live_tracking_is_not_claimed(agent):
     response = agent.ask("pedido 1002 cliente.dois@example.com")
-    assert "não tenho acesso ao rastreamento em tempo real" in response.text
+    assert "real-time tracking" in response.text
