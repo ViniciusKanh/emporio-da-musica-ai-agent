@@ -6,6 +6,7 @@
     python run.py --test-only  # setup (if needed) -> tests, then exit
     python run.py --offline    # force the deterministic mode (no LLM) even if GEMINI_API_KEY is set
     python run.py --share      # Gradio temporary public link (useful on Colab/remote machines)
+    python run.py --eval       # setup (if needed) -> LLM evaluation report (docs/LLM_EVALUATION.md)
 
 What it does, in a single terminal:
 1. creates the virtual environment ``.venv`` only if it does not exist;
@@ -71,6 +72,7 @@ def main() -> int:
     parser.add_argument("--test-only", action="store_true", help="run the tests and exit")
     parser.add_argument("--offline", action="store_true", help="force deterministic mode (no LLM)")
     parser.add_argument("--share", action="store_true", help="create a temporary public Gradio link")
+    parser.add_argument("--eval", action="store_true", help="run the LLM evaluation (needs the original files)")
     args = parser.parse_args()
 
     if sys.version_info < (3, 10):
@@ -93,6 +95,9 @@ def main() -> int:
             return 1
     if args.test_only:
         return 0
+    if args.eval:
+        step("Running the evaluation set (writes docs/LLM_EVALUATION.md) ...")
+        return run([str(python), "scripts/evaluate_llm.py"])
 
     extra = ["--offline"] if args.offline else []
     try:
