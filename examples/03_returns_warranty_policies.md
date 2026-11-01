@@ -2,7 +2,7 @@
 
 > **Scenario.** Retrieval of the policy manual with section/page citations, a non-eligible item, and an ambiguous warranty case (45 days: store exchange window expired, legal warranty may still apply) that is escalated instead of denied.
 >
-> Generated on 2026-10-31 by `scripts/generate_examples.py` · agent mode: **offline** (no LLM configured) · data: original challenge snapshot · store clock fixed at Tue 10:30 for reproducibility. Assistant messages are the verbatim output of `EmporioAgent.ask`. English notes in *italics* are author translations, not agent output. Customer e-mails are redacted in the transcript.
+> Generated on 2026-11-01 by `scripts/generate_examples.py` · agent mode: **offline** (no LLM configured) · data: original challenge snapshot · store clock fixed at Tue 10:30 for reproducibility. Assistant messages are the verbatim output of `EmporioAgent.ask` (always in English). English notes in *italics* translate the customer's Portuguese messages; they are author translations, not agent output. Customer e-mails are redacted in the transcript.
 
 ### Turn 1
 
@@ -12,19 +12,15 @@
 
 **Empório AI:**
 
-> Se a compra foi **online**, vale o direito de arrependimento: você tem até **7 dias corridos após o recebimento** para pedir a devolução, sem precisar justificar. O produto deve estar na embalagem original, sem sinais de uso e com todos os acessórios e manuais. O frete de devolução fica por conta da loja e o reembolso é feito na mesma forma de pagamento em até 10 dias úteis.
+> If you bought **online**, the right of withdrawal applies: you have up to **7 calendar days after receiving** the product to return it, no justification needed. It must be in the original packaging, unused, with all accessories and manuals. Return shipping is paid by the store and the refund goes back to the original payment method within 10 business days.
 >
-> Trecho do manual — Manual de Políticas §4.1 (p. 4):
-> > O cliente pode solicitar a devolução em até 7 (sete) dias corridos após o recebimento do produto, sem necessidade de justificativa.
-> > O produto deve estar em sua embalagem original, sem sinais de uso, com todos os acessórios e manuais.
-> > O reembolso será realizado na mesma forma de pagamento original em até 10 dias úteis.
-> > O frete de devolução é por conta da loja em caso de arrependimento.
+> _Source: Policy Manual §4.1 (p. 4)._
 >
-> Para iniciar uma devolução, nossa equipe confirma os dados do pedido. Fale com nossa equipe pelo WhatsApp (67) 3321-4500 (Segunda a Sexta-feira 09:00 às 18:00; Sábado 09:00 às 13:00).
+> To start a return, our team confirms the order details. Please contact our team on WhatsApp (67) 3321-4500 (Monday to Friday 09:00 to 18:00; Saturday 09:00 to 13:00).
 >
-> Posso ajudar em mais alguma coisa?
+> Is there anything else I can help with?
 
-<sub>mode: `offline` · intents: `returns` · tools: `search_store_policies` · sources: Manual de Políticas §4.1 (p. 4) · **human handoff**</sub>
+<sub>mode: `offline` · intents: `returns` · tools: `search_store_policies` · sources: Policy Manual §4.1 (p. 4) · **human handoff**</sub>
 
 ### Turn 2
 
@@ -34,18 +30,18 @@
 
 **Empório AI:**
 
-> Atenção: pelo manual, alguns itens **não são elegíveis para troca**: instrumentos personalizados ou com ajustes sob encomenda (setup, regulagem especial), produtos de liquidação com aviso de "venda final" e **boquilhas de instrumentos de sopro**, por questões de higiene.
+> Please note: according to the manual some items **are not eligible for exchange**: customised instruments or instruments with made-to-order adjustments (setup), clearance items marked "final sale", and **wind-instrument mouthpieces**, for hygiene reasons.
 >
-> Trecho do manual — Manual de Políticas §4.4 (p. 4):
+> Policy excerpt (Portuguese) — Policy Manual §4.4 (p. 4):
 > > Instrumentos com personalização ou ajustes sob encomenda (setup, regulagem especial).
 > > Produtos adquiridos em promoções de liquidação com aviso explícito de "venda final".
 > > Boquilhas de instrumentos de sopro, por questões de higiene.
 >
-> Para iniciar uma devolução, nossa equipe confirma os dados do pedido. Fale com nossa equipe pelo WhatsApp (67) 3321-4500 (Segunda a Sexta-feira 09:00 às 18:00; Sábado 09:00 às 13:00).
+> To start a return, our team confirms the order details. Please contact our team on WhatsApp (67) 3321-4500 (Monday to Friday 09:00 to 18:00; Saturday 09:00 to 13:00).
 >
-> Posso ajudar em mais alguma coisa?
+> Is there anything else I can help with?
 
-<sub>mode: `offline` · intents: `returns` · tools: `search_store_policies` · sources: Manual de Políticas §4.4 (p. 4) · **human handoff**</sub>
+<sub>mode: `offline` · intents: `returns` · tools: `search_store_policies` · sources: Policy Manual §4.4 (p. 4) · **human handoff**</sub>
 
 ### Turn 3
 
@@ -55,22 +51,19 @@
 
 **Empório AI:**
 
-> Sinto muito pelo problema! Pelas nossas políticas: (1) **troca por defeito de fabricação** direto na loja em até **30 dias corridos após a compra**; (2) **garantia legal de 90 dias** (CDC) contra defeitos de fabricação, contados do **recebimento**; (3) depois disso, **garantia do fabricante** (normalmente de 6 meses a 2 anos, conforme o certificado do produto), e a loja pode intermediar o processo.
+> Sorry about that! Our policies provide: (1) **exchange for a manufacturing defect** at the store within **30 calendar days of purchase**; (2) a **90-day legal warranty** (Brazilian Consumer Code) against manufacturing defects, counted from **receipt**; (3) after that, the **manufacturer's warranty** (usually 6 months to 2 years, per the product certificate), and the store can mediate the process.
 >
-> Com 45 dias, o prazo de troca direta na loja (30 dias) já passou, mas o produto ainda pode estar na garantia legal de 90 dias, que conta a partir do recebimento. Como as duas regras se sobrepõem, esse caso precisa de avaliação da nossa equipe — não vou negar seu direito por aqui.
+> At 45 days the store's direct-exchange window (30 days) has passed, but the product may still be under the 90-day legal warranty counted from receipt. Because the two rules overlap, our team needs to evaluate this case — I won't deny your rights here.
 >
-> Trecho do manual — Manual de Políticas §4.2 (p. 4):
-> > Produtos com defeito de fabricação podem ser trocados em até 30 (trinta) dias corridos após a compra.
-> > Após os 30 dias, o cliente deve acionar a garantia diretamente com o fabricante. A Empório da Música pode intermediar o processo mediante solicitação.
-> > Danos causados por mau uso, quedas, exposição a umidade excessiva ou modificações não autorizadas não são cobertos.
+> _Source: Policy Manual §4.2 (p. 4)._
 >
-> A garantia não cobre desgaste natural (cordas, trastes, feltros), mau uso, quedas, condições climáticas extremas, reparos por terceiros e danos apenas estéticos.
+> Warranty does not cover natural wear (strings, frets, felts), misuse, drops, extreme climate, third-party repairs or purely cosmetic damage.
 >
-> Para avaliarmos o seu caso: Fale com nossa equipe pelo WhatsApp (67) 3321-4500 (Segunda a Sexta-feira 09:00 às 18:00; Sábado 09:00 às 13:00).
+> To have your case evaluated: Please contact our team on WhatsApp (67) 3321-4500 (Monday to Friday 09:00 to 18:00; Saturday 09:00 to 13:00).
 >
-> Posso ajudar em mais alguma coisa?
+> Is there anything else I can help with?
 
-<sub>mode: `offline` · intents: `warranty` · tools: `search_store_policies` · sources: Manual de Políticas §4.2 (p. 4), Manual de Políticas §8.1 (p. 7), Manual de Políticas §8.2 (p. 7), Manual de Políticas §8.3 (p. 7) · **human handoff**</sub>
+<sub>mode: `offline` · intents: `warranty` · tools: `search_store_policies` · sources: Policy Manual §4.2 (p. 4), Policy Manual §8.1 (p. 7), Policy Manual §8.2 (p. 7), Policy Manual §8.3 (p. 7) · **human handoff**</sub>
 
 ### Turn 4
 
@@ -80,22 +73,22 @@
 
 **Empório AI:**
 
-> Aceitamos:
-> - **PIX** à vista, com 5% de desconto sobre o preço de tabela (não vale sobre preço promocional)
-> - **Cartão de débito** à vista
-> - **Cartão de crédito** em até 12x sem juros — até 3x (parcela mínima R$ 50,00), 4x a 6x (parcela mínima R$ 80,00), 7x a 12x (parcela mínima R$ 100,00)
-> - **Boleto** à vista (compensação em até 3 dias úteis)
-> - Combinar formas de pagamento (ex.: PIX + cartão) é permitido em compras acima de R$ 2.000,00.
+> We accept:
+> - **PIX** (instant transfer) with 5% off the list price (not on promotional prices)
+> - **Debit card**
+> - **Credit card** up to 12 interest-free installments — up to 3x (minimum R$ 50.00 per installment), 4x-6x (minimum R$ 80.00), 7x-12x (minimum R$ 100.00)
+> - **Boleto** (bank slip, clears in up to 3 business days)
+> - Combining payment methods (e.g. PIX + card) is allowed for purchases above R$ 2.000,00.
 >
-> Nosso horário de funcionamento:
-> - Segunda a Sexta-feira: 09:00 às 18:00
-> - Sábado: 09:00 às 13:00
-> - Domingo e Feriados: Fechado
+> Our opening hours:
+> - Monday to Friday: 09:00 to 18:00
+> - Saturday: 09:00 to 13:00
+> - Sundays and holidays: Closed
 >
-> Agora (terça, 10:30 em Campo Grande) a loja está **aberta** até as 18:00. Feriados não constam no sistema.
+> Right now (Tuesday 10:30 in Campo Grande) the store is **open** until 18:00. Public holidays are not in our system.
 >
-> O WhatsApp segue o mesmo horário. Em datas especiais (Black Friday, Aniversário da Loja, Natal) o horário pode ser estendido.
+> WhatsApp support follows the same hours. On special dates (Black Friday, store anniversary, Christmas) hours may be extended.
 >
-> Posso ajudar em mais alguma coisa?
+> Is there anything else I can help with?
 
-<sub>mode: `offline` · intents: `payment, hours` · tools: `search_store_policies, get_store_info` · sources: Manual de Políticas §3 (p. 3), Manual de Políticas §3.1 (p. 3), Manual de Políticas §2 (p. 2)</sub>
+<sub>mode: `offline` · intents: `payment, hours` · tools: `search_store_policies, get_store_info` · sources: Policy Manual §3 (p. 3), Policy Manual §3.1 (p. 3), Policy Manual §2 (p. 2)</sub>

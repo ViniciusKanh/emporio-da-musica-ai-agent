@@ -2,7 +2,7 @@
 
 > **Scenario.** Category + price parsing, stock and status filtering, conversational follow-up (the second message reuses the category of the first), sub-type filter (nylon), an out-of-stock product with alternatives, a beginner recommendation justified by the catalog descriptions and a side-by-side comparison.
 >
-> Generated on 2026-10-31 by `scripts/generate_examples.py` · agent mode: **offline** (no LLM configured) · data: original challenge snapshot · store clock fixed at Tue 10:30 for reproducibility. Assistant messages are the verbatim output of `EmporioAgent.ask`. English notes in *italics* are author translations, not agent output. Customer e-mails are redacted in the transcript.
+> Generated on 2026-11-01 by `scripts/generate_examples.py` · agent mode: **offline** (no LLM configured) · data: original challenge snapshot · store clock fixed at Tue 10:30 for reproducibility. Assistant messages are the verbatim output of `EmporioAgent.ask` (always in English). English notes in *italics* translate the customer's Portuguese messages; they are author translations, not agent output. Customer e-mails are redacted in the transcript.
 
 ### Turn 1
 
@@ -12,7 +12,7 @@
 
 **Empório AI:**
 
-> Estas são as opções de **violões** disponíveis até R$ 1.000,00:
+> Here are the **acoustic guitars** in stock up to R$ 1.000,00:
 > - **Tagima Memphis AC-39 Nylon Natural** — R$ 429,90
 > - **Rozini RC-104 Nylon Estudante** — R$ 459,90
 > - **Shelby SN-100 Folk Aço Preto** — R$ 549,00
@@ -22,9 +22,9 @@
 > - **Yamaha F310 Aço Natural** — R$ 699,90
 > - **Tagima Dallas Tuner Aço Natural** — R$ 749,00
 >
-> (Mostrando 8 de 12 opções. Quer filtrar por faixa de preço ou tipo?) Obs.: 2 item(ns) que atenderiam à busca estão sem estoque ou fora de linha, por isso não aparecem na lista. Preços já consideram promoções vigentes. No PIX há 5% de desconto em itens fora de promoção.
+> (Showing 8 of 12 options. Want to narrow it down by price or type?) Note: 2 matching item(s) are out of stock or discontinued, so they are not listed. Prices already include active promotions. PIX gives 5% off items that are not on promotion.
 >
-> Posso ajudar em mais alguma coisa?
+> Is there anything else I can help with?
 
 <sub>mode: `offline` · intents: `availability, product_search` · tools: `search_products` · sources: products.csv, categories.csv, promotions.csv</sub>
 
@@ -36,16 +36,16 @@
 
 **Empório AI:**
 
-> Estas são as opções de **violões** disponíveis até R$ 600,00:
+> Here are the **acoustic guitars** in stock up to R$ 600,00:
 > - **Tagima Memphis AC-39 Nylon Natural** — R$ 429,90
 > - **Rozini RC-104 Nylon Estudante** — R$ 459,90
 > - **Shelby SN-100 Folk Aço Preto** — R$ 549,00
 > - **Giannini GF-1R Aço Folk Sunburst** — R$ 579,90
 > - **Yamaha C40 Nylon Natural** — R$ 599,90
 >
-> Preços já consideram promoções vigentes. No PIX há 5% de desconto em itens fora de promoção.
+> Prices already include active promotions. PIX gives 5% off items that are not on promotion.
 >
-> Posso ajudar em mais alguma coisa?
+> Is there anything else I can help with?
 
 <sub>mode: `offline` · intents: `product_search` · tools: `search_products` · sources: products.csv, categories.csv, promotions.csv</sub>
 
@@ -57,15 +57,15 @@
 
 **Empório AI:**
 
-> Estas são as opções de **violões** disponíveis até R$ 700,00:
+> Here are the **acoustic guitars** in stock up to R$ 700,00:
 > - **Tagima Memphis AC-39 Nylon Natural** — R$ 429,90
 > - **Rozini RC-104 Nylon Estudante** — R$ 459,90
 > - **Yamaha C40 Nylon Natural** — R$ 599,90
 > - **Giannini GN-15 Nylon Cedr Natural** — R$ 689,00
 >
-> Preços já consideram promoções vigentes. No PIX há 5% de desconto em itens fora de promoção.
+> Prices already include active promotions. PIX gives 5% off items that are not on promotion.
 >
-> Posso ajudar em mais alguma coisa?
+> Is there anything else I can help with?
 
 <sub>mode: `offline` · intents: `product_search` · tools: `search_products` · sources: products.csv, categories.csv, promotions.csv</sub>
 
@@ -77,17 +77,17 @@
 
 **Empório AI:**
 
-> **Giannini GF-3D Dreadnought Sunburst** (Violões)
-> - ⚠️ Temporariamente sem estoque
-> - Preço: **R$ 799,90**
-> - Especificações: tampo Spruce, fundo/laterais Sapele, braço Nato, cordas de aço, escala 650mm, sem captação, cor Sunburst
+> **Giannini GF-3D Dreadnought Sunburst** (acoustic guitars)
+> - ⚠️ Temporarily out of stock
+> - Price: **R$ 799,90**
+> - Specs: top: Spruce, back/sides: Sapele, neck: Nato, steel strings, scale 650mm, no pickup, color: Sunburst
 >
-> Opções parecidas disponíveis agora:
+> Similar options in stock now:
 > - **Shelby SGD-195E Elétrico Aço Sunburst** — R$ 799,00
 > - **Yamaha C70 Nylon Natural** — R$ 849,00
 > - **Tagima Dallas Tuner Aço Natural** — R$ 749,00
 >
-> Posso ajudar em mais alguma coisa?
+> Is there anything else I can help with?
 
 <sub>mode: `offline` · intents: `availability, product_info` · tools: `get_product_details` · sources: products.csv, promotions.csv, categories.csv</sub>
 
@@ -99,18 +99,18 @@
 
 **Empório AI:**
 
-> Separei 3 opções de **violões** para quem está começando até R$ 800,00, todas disponíveis agora:
+> Here are 3 **acoustic guitars** for beginners up to R$ 800,00, all in stock now:
 >
 > 1. **Tagima Memphis AC-39 Nylon Natural** — R$ 429,90
->    Por quê: _Corpo leve e confortável para longas sessões de estudo._
+>    Why: _Corpo leve e confortável para longas sessões de estudo._ (catalog description, in Portuguese)
 > 2. **Rozini RC-104 Nylon Estudante** — R$ 459,90
->    Por quê: _Acabamento caprichado e preço acessível para iniciantes._
+>    Why: _Acabamento caprichado e preço acessível para iniciantes._ (catalog description, in Portuguese)
 > 3. **Yamaha C40 Nylon Natural** — R$ 599,90
->    Por quê: _Ideal para estudantes e iniciantes, com excelente projeção sonora._
+>    Why: _Ideal para estudantes e iniciantes, com excelente projeção sonora._ (catalog description, in Portuguese)
 >
-> A indicação usa a descrição cadastrada de cada produto, o preço e o estoque atuais. Quer que eu compare duas delas lado a lado?
+> This suggestion uses each product's catalog description, current price and stock. Want me to compare two of them side by side?
 >
-> Posso ajudar em mais alguma coisa?
+> Is there anything else I can help with?
 
 <sub>mode: `offline` · intents: `recommend` · tools: `search_products` · sources: products.csv, promotions.csv</sub>
 
@@ -122,23 +122,23 @@
 
 **Empório AI:**
 
-> Comparando lado a lado (dados do nosso sistema):
+> Side-by-side comparison (from our system):
 >
 > | | **Yamaha C40 Nylon Natural** | **Tagima Memphis AC-39 Nylon Natural** |
 > |---|---|---|
-> | Categoria | Violões | Violões |
-> | Preço | **R$ 599,90** | **R$ 429,90** |
+> | Category | acoustic guitars | acoustic guitars |
+> | Price | **R$ 599,90** | **R$ 429,90** |
 > | PIX | R$ 569,91 | R$ 408,41 |
-> | Cartão (sem juros) | 6x R$ 99,98 | 5x R$ 85,97 |
-> | Disponibilidade | ✅ 12 em estoque | ✅ 15 em estoque |
-> | Tampo | Spruce | Linden |
-> | Fundo/laterais | Meranti | Linden |
-> | Cordas | nylon | nylon |
-> | Captação | não | não |
-> | Escala | 650mm | 650mm |
+> | Card (interest-free) | 6x R$ 99,98 | 5x R$ 85,97 |
+> | Availability | ✅ 12 in stock | ✅ 15 in stock |
+> | Top | Spruce | Linden |
+> | Back/sides | Meranti | Linden |
+> | Strings | nylon | nylon |
+> | Pickup | no | no |
+> | Scale | 650mm | 650mm |
 >
-> Mais em conta entre os disponíveis: **Tagima Memphis AC-39 Nylon Natural** (R$ 429,90). A escolha depende do seu uso — se me contar o estilo que você toca e o orçamento, eu indico a opção mais adequada.
+> Most affordable in stock: **Tagima Memphis AC-39 Nylon Natural** (R$ 429,90). The right pick depends on how you play — tell me your style and budget and I'll point you to the best fit.
 >
-> Posso ajudar em mais alguma coisa?
+> Is there anything else I can help with?
 
 <sub>mode: `offline` · intents: `compare` · tools: `get_product_details, get_product_details` · sources: products.csv, promotions.csv, categories.csv</sub>

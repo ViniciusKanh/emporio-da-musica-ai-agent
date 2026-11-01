@@ -1,6 +1,6 @@
 # Interaction examples
 
-Generated on 2026-10-31 by `scripts/generate_examples.py` running the agent in **offline** mode against the original challenge snapshot (`data/`). Assistant messages are verbatim agent output.
+Generated on 2026-11-01 by `scripts/generate_examples.py` running the agent in **offline** mode against the original challenge snapshot (`data/`). Assistant messages are verbatim agent output.
 
 - [Catalog search, recommendation and side-by-side comparison](01_catalog_budget_search.md)
 - [Prices, promotions and non-cumulative discounts](02_price_promotions_payment.md)

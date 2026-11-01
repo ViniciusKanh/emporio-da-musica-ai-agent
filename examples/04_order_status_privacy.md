@@ -2,7 +2,7 @@
 
 > **Scenario.** Order lookup requires order number + the e-mail registered on that order, collected over two messages. The agent distinguishes the recorded status from real-time tracking, then combines the verified order with the return policy and escalates because the receipt date is unknown.
 >
-> Generated on 2026-10-31 by `scripts/generate_examples.py` · agent mode: **offline** (no LLM configured) · data: original challenge snapshot · store clock fixed at Tue 10:30 for reproducibility. Assistant messages are the verbatim output of `EmporioAgent.ask`. English notes in *italics* are author translations, not agent output. Customer e-mails are redacted in the transcript.
+> Generated on 2026-11-01 by `scripts/generate_examples.py` · agent mode: **offline** (no LLM configured) · data: original challenge snapshot · store clock fixed at Tue 10:30 for reproducibility. Assistant messages are the verbatim output of `EmporioAgent.ask` (always in English). English notes in *italics* translate the customer's Portuguese messages; they are author translations, not agent output. Customer e-mails are redacted in the transcript.
 
 ### Turn 1
 
@@ -12,9 +12,9 @@
 
 **Empório AI:**
 
-> Para consultar o pedido #8, preciso também do **e-mail cadastrado** na compra (é uma verificação de segurança).
+> To look up order #8, I also need the **e-mail registered** on the purchase (security check).
 >
-> Posso ajudar em mais alguma coisa?
+> Is there anything else I can help with?
 
 <sub>mode: `offline` · intents: `order_status` · tools: `—` · sources: —</sub>
 
@@ -26,18 +26,18 @@
 
 **Empório AI:**
 
-> Obrigado, Ana! Encontrei seu pedido **#8** (feito em 2026-02-15):
-> - Status registrado: **enviado**
-> - Itens: 1x Kala KA-C Concert Mogno
-> - Total: R$ 349,90 (cartão de débito)
-> - Código de rastreamento: BRJL5544332BR (consulte no site dos Correios ou da Jadlog)
-> - Previsão de entrega registrada: 2026-02-28
+> Thanks, Ana! I found your order **#8** (placed on 2026-02-15):
+> - Recorded status: **shipped**
+> - Items: 1x Kala KA-C Concert Mogno
+> - Total: R$ 349,90 (debit card)
+> - Tracking code: BRJL5544332BR (check it on the Correios or Jadlog website)
+> - Recorded delivery estimate: 2026-02-28
 >
-> Essas informações vêm do último registro do nosso sistema; eu não tenho acesso ao rastreamento em tempo real da transportadora.
+> This comes from the latest record in our system; I don't have access to the carrier's real-time tracking.
 >
-> ⚠️ A previsão de entrega registrada (2026-02-28) já passou e o pedido ainda consta como enviado. Vale conferir o rastreio; se não chegou, nossa equipe verifica com a transportadora. Fale com nossa equipe pelo WhatsApp (67) 3321-4500 (Segunda a Sexta-feira 09:00 às 18:00; Sábado 09:00 às 13:00).
+> ⚠️ The recorded delivery estimate (2026-02-28) has passed and the order is still recorded as shipped. Please check the tracking; if it has not arrived, our team will check with the carrier. Please contact our team on WhatsApp (67) 3321-4500 (Monday to Friday 09:00 to 18:00; Saturday 09:00 to 13:00).
 >
-> Posso ajudar em mais alguma coisa?
+> Is there anything else I can help with?
 
 <sub>mode: `offline` · intents: `order_status` · tools: `get_order_status` · sources: orders.csv, order_items.csv · **human handoff**</sub>
 
@@ -49,9 +49,9 @@
 
 **Empório AI:**
 
-> O pedido #8 consta como **enviado**, com previsão de entrega registrada para **2026-02-28**. Para a posição atualizada, acompanhe o código BRJL5544332BR no site dos Correios ou da Jadlog — eu não tenho acesso ao rastreamento em tempo real. Se a previsão já passou e o pedido não chegou: Fale com nossa equipe pelo WhatsApp (67) 3321-4500 (Segunda a Sexta-feira 09:00 às 18:00; Sábado 09:00 às 13:00).
+> Order #8 is recorded as **shipped**, with an estimated delivery of **2026-02-28**. For the latest position, track code BRJL5544332BR on the Correios or Jadlog website — I don't have real-time tracking. If the estimate has passed and it hasn't arrived: Please contact our team on WhatsApp (67) 3321-4500 (Monday to Friday 09:00 to 18:00; Saturday 09:00 to 13:00).
 >
-> Posso ajudar em mais alguma coisa?
+> Is there anything else I can help with?
 
 <sub>mode: `offline` · intents: `order_status` · tools: `get_order_status` · sources: orders.csv</sub>
 
@@ -63,27 +63,23 @@
 
 **Empório AI:**
 
-> Obrigado, Lucas! Encontrei seu pedido **#4** (feito em 2025-12-10):
-> - Status registrado: **entregue**
-> - Itens: 1x Giannini GF-3D Dreadnought Sunburst
-> - Total: R$ 799,90 (boleto bancário)
-> - Código de rastreamento: BRQM7890123BR (consulte no site dos Correios ou da Jadlog)
+> Thanks, Lucas! I found your order **#4** (placed on 2025-12-10):
+> - Recorded status: **delivered**
+> - Items: 1x Giannini GF-3D Dreadnought Sunburst
+> - Total: R$ 799,90 (boleto (bank slip))
+> - Tracking code: BRQM7890123BR (check it on the Correios or Jadlog website)
 >
-> Essas informações vêm do último registro do nosso sistema; eu não tenho acesso ao rastreamento em tempo real da transportadora.
+> This comes from the latest record in our system; I don't have access to the carrier's real-time tracking.
 >
-> Se a compra foi **online**, vale o direito de arrependimento: você tem até **7 dias corridos após o recebimento** para pedir a devolução, sem precisar justificar. O produto deve estar na embalagem original, sem sinais de uso e com todos os acessórios e manuais. O frete de devolução fica por conta da loja e o reembolso é feito na mesma forma de pagamento em até 10 dias úteis.
+> If you bought **online**, the right of withdrawal applies: you have up to **7 calendar days after receiving** the product to return it, no justification needed. It must be in the original packaging, unused, with all accessories and manuals. Return shipping is paid by the store and the refund goes back to the original payment method within 10 business days.
 >
-> Trecho do manual — Manual de Políticas §4.1 (p. 4):
-> > O cliente pode solicitar a devolução em até 7 (sete) dias corridos após o recebimento do produto, sem necessidade de justificativa.
-> > O produto deve estar em sua embalagem original, sem sinais de uso, com todos os acessórios e manuais.
-> > O reembolso será realizado na mesma forma de pagamento original em até 10 dias úteis.
-> > O frete de devolução é por conta da loja em caso de arrependimento.
+> _Source: Policy Manual §4.1 (p. 4)._
 >
-> Sobre o seu pedido #4: o status registrado é **entregue**. O prazo conta a partir da data em que você **recebeu** o produto, e essa data não consta no sistema (só a previsão de entrega). Por isso vou te direcionar para a equipe confirmar a elegibilidade e abrir a devolução. Fale com nossa equipe pelo WhatsApp (67) 3321-4500 (Segunda a Sexta-feira 09:00 às 18:00; Sábado 09:00 às 13:00).
+> About your order #4: its recorded status is **delivered**. The window counts from the day you **received** it, and that date is not in our system (only the estimated delivery). Our team needs to confirm eligibility and open the return. Please contact our team on WhatsApp (67) 3321-4500 (Monday to Friday 09:00 to 18:00; Saturday 09:00 to 13:00).
 >
-> Posso ajudar em mais alguma coisa?
+> Is there anything else I can help with?
 
-<sub>mode: `offline` · intents: `returns, order_status` · tools: `get_order_status, search_store_policies` · sources: orders.csv, order_items.csv, Manual de Políticas §4.1 (p. 4) · **human handoff**</sub>
+<sub>mode: `offline` · intents: `returns, order_status` · tools: `get_order_status, search_store_policies` · sources: orders.csv, order_items.csv, Policy Manual §4.1 (p. 4) · **human handoff**</sub>
 
 ### Turn 5
 
@@ -93,8 +89,8 @@
 
 **Empório AI:**
 
-> Não consegui localizar um pedido com esse número e e-mail. Confira os dados (o e-mail precisa ser o mesmo usado na compra) e tente novamente.
+> I couldn't find an order with that number and e-mail. Please double-check (it must be the e-mail used for the purchase) and try again.
 >
-> Posso ajudar em mais alguma coisa?
+> Is there anything else I can help with?
 
 <sub>mode: `offline` · intents: `order_status` · tools: `get_order_status` · sources: —</sub>

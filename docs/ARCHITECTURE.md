@@ -14,7 +14,7 @@ Complements sections 2–5 of the [README](../README.md). Everything below descr
 | `orders.py` | `OrderService.lookup` → `OrderLookup` | Order id + e-mail check; output without personal data. |
 | `policies.py` | `PolicyKnowledgeBase.search`, `find_section`, `store_info`, `verify_rules` | Page-aware chunking, BM25, synonyms, structured facts and conflicts. |
 | `tools.py` | `ToolBox.call` + 8 tools | Argument validation, `sources`, trace with redacted arguments. |
-| `guardrails.py` | `inspect_message`, `redact`, `PiiVault` | Heuristics are defence in depth; the main control is the read-only tool design. |
+| `guardrails.py` | `canonical_variants`, `inspect_message` → `GuardrailReport(categories, obfuscated)`, `sanitize_untrusted`, `output_issues`, `redact`, `PiiVault` | Obfuscation-aware attack families (EN/PT), indirect-injection sanitising of tool results, output leak checks. Heuristics are defence in depth; the main control is the read-only tool design. |
 | `router.py` | `IntentRouter.route` → `Route` | Multi-label intents, products, categories, price range, sub-types, order id, e-mail, language, follow-up markers. |
 | `offline_engine.py` | `OfflineEngine.respond` | One builder per intent; context resolution; curated wording only when the manual contains the facts. |
 | `llm.py` | `GeminiAgent.respond`, `grounding_issues`, `SYSTEM_PROMPT`, `TOOL_DECLARATIONS` | Manual function-calling loop with the official SDK. |
@@ -75,7 +75,7 @@ otherwise / on any exception                                                    
 ## Provider chain, fallback and tokens
 
 ```text
-chain = session override (UI "Configurações") or defaults from .env, e.g. [Gemini, Local]
+chain = session override (UI "Settings" tab) or defaults from .env, e.g. [Gemini, Local]
 for provider in chain:
     skip if UsageMeter.remaining(provider) == 0          # per-session token budget
     try provider.respond(message, state, tools, usage)   # usage filled after every API request
@@ -89,7 +89,7 @@ transcript += (user message with e-mails tokenised, final answer)   # shared by 
 * Usage numbers come from the provider responses (Gemini `usage_metadata.prompt_token_count /
   candidates_token_count / total_token_count`; OpenAI-compatible `usage.prompt_tokens / completion_tokens /
   total_tokens`).
-* A UI key is stored in a frozen `ProviderConfig` attached to that session only (`repr` hides it); "Nova conversa"
+* A UI key is stored in a frozen `ProviderConfig` attached to that session only (`repr` hides it); "New conversation"
   clears the conversation but keeps the session's settings and counters.
 
 ## Data-quality findings on the original snapshot
@@ -118,6 +118,8 @@ Produced by `DataStore` at start-up (see the notebook output or `agent.store.rep
 | Decision | Alternatives considered | Reason |
 |---|---|---|
 | Provider-agnostic tool layer; Gemini default, local model optional | Local model only; Gemini only | The case allows both; Gemini is faster and more reliable at tool use, a local model gives cost-free, offline operation. Grounding checks are shared. |
+| Always answer in English (`EMPORIO_REPLY_LANGUAGE=en`), understand Portuguese | Answer in the customer's language | Project requirement: the whole product is in English; Brazilian customers still write in Portuguese, so the router, retrieval and guardrails stay bilingual. `auto` keeps the bilingual behaviour. |
+| Session strikes + rate limit in the agent | Rely on the prompt only | Repeated or obfuscated attacks switch the session to the deterministic engine; flooding is cut before any tool or LLM call. |
 | Ordered provider chain with per-session settings | Single global provider; restart to change | Lets the user switch models and keep answering when Gemini runs out of quota, without a key typed by one visitor affecting another. |
 | Native function calling, manual loop | LangChain agent; automatic function calling | Full control of validation, tracing, bounds and PII; fewer dependencies. |
 | Deterministic tools for numbers | LLM-generated pandas/SQL | Exact, testable arithmetic; no access path to customer data. |
