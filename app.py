@@ -708,9 +708,12 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--share", action="store_true", help="create a temporary public Gradio link")
     parser.add_argument("--offline", action="store_true", help="force deterministic mode (no LLM)")
-    # Hosted environments such as Hugging Face Spaces set GRADIO_SERVER_NAME=0.0.0.0.
+    # Hosted environments such as Hugging Face Spaces set GRADIO_SERVER_NAME=0.0.0.0 (PORT alone also implies it).
+    if os.getenv("PORT") and not os.getenv("GRADIO_SERVER_NAME"):
+        os.environ["GRADIO_SERVER_NAME"] = "0.0.0.0"
     parser.add_argument("--host", default=os.getenv("GRADIO_SERVER_NAME", "127.0.0.1"))
-    parser.add_argument("--port", type=int, default=int(os.getenv("GRADIO_SERVER_PORT", "7860")))
+    # Render, Railway, Cloud Run and similar hosts pass the port in PORT.
+    parser.add_argument("--port", type=int, default=int(os.getenv("GRADIO_SERVER_PORT") or os.getenv("PORT") or "7860"))
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     agent = EmporioAgent(Settings.from_env(llm_mode="offline" if args.offline else None))

@@ -1,0 +1,21 @@
+# Render Blueprint (https://render.com) - free web service running the Gradio app on the public sample data.
+# Render: New > Blueprint > select this repository. Set GEMINI_API_KEY in the dashboard (optional).
+services:
+  - type: web
+    name: emporio-ai
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    healthCheckPath: /
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: GRADIO_SERVER_NAME
+        value: 0.0.0.0
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: GEMINI_TOKEN_BUDGET
+        value: "20000"

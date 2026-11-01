@@ -166,6 +166,12 @@ Create a new Space at <https://huggingface.co/new-space> with the **Gradio** SDK
 `dist/huggingface-space/`, and (optionally) add `GEMINI_API_KEY` under *Settings → Variables and secrets*. The Space
 runs on the synthetic sample data only — the original challenge files are never uploaded.
 
+**Alternative: Render (free web service).** The repository includes a `render.yaml` blueprint: on
+<https://render.com> choose *New → Blueprint*, select this GitHub repository and, optionally, set `GEMINI_API_KEY`.
+The app reads the `PORT` variable provided by the host. Free instances sleep when idle, so the first request after a
+pause is slow. A local model (Ollama) is not reachable from any cloud host — online, the app uses Gemini or the
+deterministic engine.
+
 ---
 
 ## 3. How the agent works
@@ -566,6 +572,7 @@ python scripts/build_pdf.py           # regenerate the documentation PDF in subm
 
 ```text
 run.py · run.bat · run.sh       one-command launcher (--cli, --test-only, --eval, --share, ...)
+render.yaml                     optional deployment blueprint for Render
 .github/workflows/tests.yml     continuous integration (pytest on Python 3.10 and 3.12)
 app.py · run_cli.py             web chat (Gradio) and terminal chat
 src/emporio_ai/                 agent, tools, data, rules, retrieval, Gemini integration, safety checks
