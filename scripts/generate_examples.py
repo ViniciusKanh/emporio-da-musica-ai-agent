@@ -4,8 +4,9 @@
 
 Every assistant message in the generated files is the verbatim output of
 ``EmporioAgent.ask``. Customer e-mails are read from customers.csv at run time and
-replaced by a placeholder in the transcript. The short English notes under each
-Portuguese turn are author-written translations, labelled as such.
+replaced by a placeholder in the transcript. Customers write in Portuguese (the store is in Brazil) or English; the
+agent always answers in English. The short English notes under each Portuguese customer message are author-written
+translations, labelled as such.
 """
 
 from __future__ import annotations
@@ -101,8 +102,9 @@ def main() -> int:
                  f"> Generated on {today} by `scripts/generate_examples.py` · agent mode: **{agent.mode}** "
                  f"(no LLM configured) · data: original challenge snapshot · store clock fixed at Tue 10:30 for reproducibility. "
                  "Assistant messages are the "
-                 "verbatim output of `EmporioAgent.ask`. English notes in *italics* are author translations, not agent "
-                 "output. Customer e-mails are redacted in the transcript.", ""]
+                 "verbatim output of `EmporioAgent.ask` (always in English). English notes in *italics* translate the "
+                 "customer's Portuguese messages; they are author translations, not agent output. Customer e-mails "
+                 "are redacted in the transcript.", ""]
         for i, (message, note) in enumerate(turns, start=1):
             sent, shown = message, message
             if "{email:" in message:

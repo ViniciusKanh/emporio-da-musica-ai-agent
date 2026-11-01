@@ -49,7 +49,7 @@ https://github.com/ViniciusKanh/emporio-da-musica-ai-agent
 This demo runs on the **synthetic sample data** of the repository (the original challenge files are not public).
 With the `GEMINI_API_KEY` secret configured the agent uses Gemini with function calling; otherwise it answers with
 the deterministic engine. The evidence panel shows which one answered, the sources used and the tokens spent.
-Visitors can also paste their own Gemini key in the "Configurações" tab: it applies only to their browser session
+Visitors can also paste their own Gemini key in the "Settings" tab: it applies only to their browser session
 and is kept in memory (never written to disk or logs). Set `GEMINI_TOKEN_BUDGET` to cap tokens per visitor session.
 
 **Local model:** not available in this online demo — a model served by Ollama runs on the user's own computer

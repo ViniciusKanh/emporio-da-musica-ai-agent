@@ -3,7 +3,7 @@
 Usage:
     python run_cli.py                      # interactive chat
     python run_cli.py --offline            # force deterministic mode (no LLM)
-    python run_cli.py -m "Quanto custa o Takamine GD20?"   # single question
+    python run_cli.py -m "How much is the Takamine GD20?"   # single question
     python run_cli.py --trace              # also print tools and sources
 """
 
@@ -35,7 +35,7 @@ def main() -> int:
     settings = Settings.from_env(data_dir=args.data_dir, llm_mode="offline" if args.offline else None)
     agent = EmporioAgent(settings)
     data_label = "synthetic sample fixtures" if settings.uses_sample_data else str(settings.data_dir)
-    print(f"Empório AI | mode: {agent.mode} | data: {data_label} | type 'sair' or 'exit' to quit\n")
+    print(f"Empório AI | mode: {agent.mode} | data: {data_label} | type 'exit' to quit\n")
 
     def answer(question: str) -> None:
         response = agent.ask(question, session_id="cli")
@@ -53,7 +53,7 @@ def main() -> int:
         return 0
     while True:
         try:
-            question = input("Você: ").strip()
+            question = input("You: ").strip()
         except (EOFError, KeyboardInterrupt):
             print()
             return 0

@@ -102,7 +102,7 @@ def main() -> int:
     extra = ["--offline"] if args.offline else []
     try:
         if args.cli:
-            step("Starting the terminal chat (type 'sair' to exit) ...")
+            step("Starting the terminal chat (type 'exit' to quit) ...")
             return run([str(python), "run_cli.py", *extra])
         step("Starting the web interface at http://127.0.0.1:7860  (press Ctrl+C to stop) ...")
         return run([str(python), "app.py", *extra, *(["--share"] if args.share else [])])
