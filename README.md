@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/brand/emporio_logo_light_bg.png" alt="Empório da Música" width="420"></p>
+
 # Empório AI — Customer Service Agent
 
 [![tests](https://github.com/ViniciusKanh/emporio-da-musica-ai-agent/actions/workflows/tests.yml/badge.svg)](https://github.com/ViniciusKanh/emporio-da-musica-ai-agent/actions/workflows/tests.yml)
@@ -5,7 +7,8 @@
 A Python text agent that answers customers of **Empório da Música**, a fictional musical-instrument store in
 Campo Grande/MS. It looks up products, prices, stock, promotions and orders in the store's data, explains the
 store's policies (payment, returns, warranty, shipping, opening hours) with page references, and politely declines
-questions that are outside the store's scope.
+questions that are outside the store's scope. In the web interface the agent appears as **Vinicius**, the store's
+virtual assistant (it always presents itself as a virtual assistant, never as a person).
 
 Built for the Artefact Brasil technical challenge — *AI Engineer, Full-Stack for Generative AI Applications* —
 by **Vinicius de Souza Santos**.
@@ -21,7 +24,7 @@ python run.py          # Windows: double-click run.bat  ·  Linux/macOS: ./run.s
 
 Then open <http://127.0.0.1:7860>. No API key is needed to try it (see [§2](#2-how-to-run)).
 
-![Demo: recommendation, comparison, expired campaign, catalog and policy search](docs/assets/demo.gif)
+![Demo: chat with Vinicius (typing indicator), recommendation, comparison, expired campaign, settings and catalog](docs/assets/demo.gif)
 
 ---
 
@@ -114,8 +117,9 @@ automatically.
 
 ### Choosing the model (optional)
 
-The challenge allows "paid or free models, local or via API". Three modes are available; the interface always
-shows which one answered:
+The challenge allows "paid or free models, local or via API". Three providers are available and are tried **in a
+chain**: the first one that produces a grounded answer wins, and the deterministic engine is always the last layer.
+The interface always shows which one answered and how many tokens it spent:
 
 | Mode | How to enable | Notes |
 |---|---|---|
@@ -127,6 +131,23 @@ shows which one answered:
 cp .env.example .env     # Windows: copy .env.example .env
 # edit .env and set GEMINI_API_KEY=your_key   (or LOCAL_LLM_BASE_URL / LOCAL_LLM_MODEL)
 ```
+
+**Or configure it in the interface** — tab **⚙️ Configurações** (no restart needed):
+
+* choose the primary provider: *Automático*, *Gemini*, *Modelo local* or *Determinístico*;
+* paste a Gemini API key, pick the model (or click *Listar modelos*) and click *Testar conexão*;
+* point to a local server (presets for Ollama, LM Studio and llama.cpp), click *Detectar modelos* to list the models
+  it serves, and test it;
+* tick **"if Gemini fails, use the local model"** — quota/rate-limit errors (HTTP 429, `RESOURCE_EXHAUSTED`), network
+  errors, an exhausted token budget or an answer rejected by the grounding check move the question to the local
+  model, then to the deterministic engine;
+* set a **token budget per session** for each provider and follow the **token usage** (requests, input, output,
+  total, failures) reported by the providers themselves.
+
+These settings apply only to the current browser session and are kept in memory: the key is never written to disk,
+logged or sent to the model. In a shared deployment each visitor's key affects only their own session.
+
+![Settings: provider, Gemini key, local model, fallback and token usage](docs/assets/ui_settings.png)
 
 ### Google Colab
 
@@ -156,8 +177,9 @@ In plain words, every message goes through five steps:
 1. **Safety check.** The message is checked for prompt injection ("ignore your instructions"), requests for other
    customers' data, and requests the agent is not allowed to fulfil (cancel an order, give a discount, refund).
    These are answered with a refusal or a referral to the human team and never reach the language model.
-2. **Choose the mode.** If a Gemini API key is configured, Gemini handles the conversation. Otherwise — or if
-   Gemini fails — the deterministic engine answers. The mode used is always reported.
+2. **Choose the provider.** The configured chain is tried in order — e.g. Gemini → local model → deterministic
+   engine. A provider is skipped when its token budget is exhausted and abandoned when it fails (quota, network,
+   invalid answer). The provider used, any fallback and the tokens spent are always reported.
 3. **Look up the facts with tools.** The model (or the deterministic engine) calls read-only Python tools:
    search products, get product details, list promotions, calculate payment options, estimate shipping, search
    the policy manual, get store info, get order status. Tools return data **and** the sources used.
@@ -167,7 +189,9 @@ In plain words, every message goes through five steps:
    results, and no customer e-mail or phone may appear. If the check fails, the deterministic answer is sent
    instead. The reply comes with its sources and, when needed, a referral to the human team.
 
-**Conversation memory.** Each session keeps a small in-memory state so that follow-ups work: *"Quanto custa o
+**Conversation memory.** Each session keeps a small in-memory state so that follow-ups work — also when the answer
+of the previous turn came from another provider, because the history is stored in a provider-neutral form (with
+e-mails already masked) and each provider rebuilds its own message format from it: *"Quanto custa o
 Takamine GD20?"* → *"e no pix?"*; *"Quais ukuleles?"* → *"e até 300?"*; *"Onde está meu pedido 8?"* →
 (customer sends the e-mail) → *"e quando chega?"*. Nothing is stored on disk.
 
@@ -225,6 +249,8 @@ it would give the model unrestricted access to `customers.csv` and make arithmet
 * Native function calling through the official `google-genai` SDK, good Brazilian Portuguese, low latency and
   cost, and a free tier — so anyone evaluating the project can run it.
 * The model can be changed with the `GEMINI_MODEL` variable.
+* Token usage is read from each response (`usage_metadata`) and shown per answer and per session; an optional
+  per-session budget (`GEMINI_TOKEN_BUDGET` or the settings tab) caps spending.
 * Temperature 0.2 (consistent, factual answers). Automatic function calling is turned off so that the project's
   own loop runs the tools: it validates the arguments, records each call and stops after at most 5 rounds.
 * **Validation status:** the hosted Gemini model was **not** called during development (no API key was available
@@ -240,6 +266,8 @@ with no API key and no data leaving the computer.
 * **No new dependency:** the client uses only the Python standard library (`llm_openai.py`).
 * **Same safety net:** the same read-only tools, e-mail masking and answer check are used. Small models call tools
   less reliably; when they fail, the deterministic engine answers.
+* **Fallback for Gemini:** when "use the local model if Gemini fails" is on (default), a quota error, a network
+  error or an ungrounded Gemini answer is retried on the local model before the deterministic engine.
 * **Why Gemini stays the default:** a 7B model on a laptop CPU is slow (tens of seconds per answer) and less
   reliable at multi-step tool use; the case does not require a local model, so it is offered as an option.
 * **Validation status:** the wire protocol is tested against a real local HTTP server in the test suite; no actual
@@ -261,7 +289,8 @@ with no API key and no data leaving the computer.
 
 The system prompt (`src/emporio_ai/llm.py`) defines:
 
-1. **Persona** — the tone from the manual (§7.1), in the customer's language.
+1. **Persona** — "Vinicius", the store's virtual assistant, with the tone from the manual (§7.1), in the customer's
+   language; it introduces itself by name and never claims to be human.
 2. **Grounding rules** — never state a price, stock level, promotion, delivery time, order status or policy
    without calling a tool in the same turn; show original price, promotional price and discount percentage
    together; never add the PIX discount on top of a promotion.
@@ -274,16 +303,20 @@ after the model are enforced in code (§9).
 
 ### Interface and conversation history
 
-* **Gradio** web interface with four tabs:
-    * **Atendimento** — the chat, one-click quick actions, a "store open/closed now" badge and an **evidence panel**
-      that shows, for every answer, the mode, the detected intents, the tools called, the sources and, on hand-offs,
-      the case note for the team (useful for an evaluator to audit each answer);
+* **Gradio** web interface in the store's visual identity (navy `#0B1E3A`, violet `#6C38AA`, magenta `#EC1681`,
+  logo and assistant avatar in `assets/brand/`), with five tabs:
+    * **Atendimento** — chat with **Vinicius** (avatar, "typing…" indicator and progressive reveal of the answer),
+      one-click quick actions, a "store open/closed now" badge and an **evidence panel** that shows, for every
+      answer, the provider, the detected intents, the tools called, the tokens spent, the sources, any fallback and,
+      on hand-offs, the case note for the team (useful for an evaluator to audit each answer);
     * **Catálogo** — a filterable product table (category, maximum price, availability, search) and the active
       promotions, computed with the same rules the agent uses;
     * **Políticas** — type a question and see the 3 manual sections the retriever returns, with citation and
       score (makes the RAG step visible);
     * **Como funciona** — the supported models, the architecture diagram, the data-quality findings and the contradictions found in the
-      manual, loaded live from the data.
+      manual, loaded live from the data;
+    * **Configurações** — provider choice, Gemini key and model, local model, fallback, token budgets and usage
+      (see §2).
 * **CLI** (`run_cli.py --trace`) and a **Colab notebook** for quick reproduction.
 * History is kept **in memory per session**: enough for follow-up questions, without persisting personal data.
 
@@ -420,12 +453,13 @@ every push (`.github/workflows/tests.yml`, badge at the top).
 | Deterministic agent on synthetic and original data | Validated (tests + generated examples) |
 | Gemini tool loop: SDK types, tool execution, e-mail masking, answer check, fallback | Validated with a scripted fake client |
 | Local / OpenAI-compatible provider: HTTP protocol, tool calls, e-mail masking, fallback | Validated against a real local HTTP test server |
+| Provider chain: Gemini quota error → local model → deterministic, token counting, budgets, per-session settings | Validated with scripted fakes (`tests/test_providers.py`); the settings tab was exercised in the browser against a stand-in OpenAI-compatible server. With the real `google-genai` SDK and an invalid key, the network error correctly triggered the fallback |
 | Answers of a real local model | **Not validated** — model downloads blocked in the development environment |
 | Answers of the real Gemini model | **Not validated** — no API key in the development environment; run `python run.py --eval` with a key to measure it |
 | Colab notebook | Executed end-to-end with `jupyter nbconvert` on Linux, not inside Colab itself |
 | Web interface | Launched and used locally — the screenshots below are real captures |
 
-![Chat with evidence panel](docs/assets/ui_chat.png)
+![Chat with Vinicius and the evidence panel](docs/assets/ui_chat.png)
 
 ![Catalog explorer](docs/assets/ui_catalog.png)
 
@@ -448,7 +482,9 @@ every push (`.github/workflows/tests.yml`, badge at the top).
   personal detail shown is the **first name of the verified customer**, used to greet them (manual §7.2), and it is
   never sent to an LLM.
 * **Credentials** are read from environment variables or a `.env` file, which is excluded from Git
-  (`.env.example` documents the variables).
+  (`.env.example` documents the variables). A key typed in the settings tab lives only in the memory of that
+  browser session (password field, never logged, never persisted, masked out of error messages); token budgets
+  limit the cost a session can generate.
 * **Restricted documents** — the policy manual and the original customer file — are not published.
 
 ---
@@ -487,6 +523,8 @@ The challenge asks to document reasonable assumptions where information is missi
 * Recommendations are rule-based (keywords in the descriptions + price position); they are explainable but do not
   learn from sales or reviews.
 * Sessions live in memory (lost on restart, single server), and the web UI has no rate limiting.
+* Token budgets are checked before each answer, so a budget can be exceeded by at most one answer. Endpoints that
+  do not report `usage` are counted as requests with zero tokens.
 
 **With more time**
 
@@ -509,6 +547,9 @@ The challenge asks to document reasonable assumptions where information is missi
 | `LOCAL_LLM_BASE_URL` | empty | OpenAI-compatible endpoint, e.g. `http://localhost:11434/v1` (Ollama). |
 | `LOCAL_LLM_MODEL` | `qwen2.5:7b-instruct` | Model name as known by the local server. |
 | `LOCAL_LLM_API_KEY` / `LOCAL_LLM_TIMEOUT` | empty / `120` | Optional key (online providers) and timeout in seconds. |
+| `EMPORIO_LOCAL_FALLBACK` | `true` | Use the local model when Gemini fails (quota, network, ungrounded answer). |
+| `GEMINI_TOKEN_BUDGET` / `LOCAL_LLM_TOKEN_BUDGET` | empty | Token budget per session for each provider (empty = unlimited). |
+| `EMPORIO_ASSISTANT_NAME` | `Vinicius` | Name of the virtual assistant (persona and UI). |
 | `EMPORIO_MAX_TOOL_ROUNDS` | `5` | Maximum tool-calling rounds per message. |
 | `EMPORIO_DATA_DIR` / `EMPORIO_POLICY_PATH` | auto | Alternative locations for the data and the policy document. |
 
@@ -530,6 +571,7 @@ app.py · run_cli.py             web chat (Gradio) and terminal chat
 src/emporio_ai/                 agent, tools, data, rules, retrieval, Gemini integration, safety checks
 tests/                          automated tests (pytest)
 data/sample/                    synthetic sample data (public)
+assets/brand/                   logo, symbol and assistant avatar (fictional store identity)
 examples/                       5 example conversations
 docs/                           architecture details, evaluation report, diagram and screenshots
 notebooks/                      Google Colab notebook

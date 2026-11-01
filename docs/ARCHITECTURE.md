@@ -20,7 +20,8 @@ Complements sections 2–5 of the [README](../README.md). Everything below descr
 | `llm.py` | `GeminiAgent.respond`, `grounding_issues`, `SYSTEM_PROMPT`, `TOOL_DECLARATIONS` | Manual function-calling loop with the official SDK. |
 | `store_hours.py` | `open_status`, `describe` | "Open now?" from the manual's hours in Campo Grande time (UTC-4). |
 | `llm_openai.py` | `OpenAICompatibleAgent.respond` | Same tool loop over the OpenAI-compatible API (Ollama, LM Studio, llama.cpp, online providers) using only `urllib`. |
-| `agent.py` | `EmporioAgent.ask` → `AgentResponse` | Sessions, mode selection, fallbacks, warnings. |
+| `agent.py` | `EmporioAgent.ask` → `AgentResponse`, `ProviderConfig`, `build_providers`, `configure_session` | Sessions, provider chain, per-session settings, fallbacks, token accounting, warnings, provider-neutral transcript. |
+| `usage.py` | `CallUsage`, `UsageMeter`, `TokenBudgetExceeded`, `is_quota_error` | Token counts per answer and per session, budgets, recognition of quota / rate-limit errors. |
 
 ## Product matching
 
@@ -68,8 +69,28 @@ repeat up to max_tool_rounds:
     contents += [model turn]                         # keeps thought signatures intact
     contents += [function responses from ToolBox]   # tools resolve <EMAIL_n> locally
 grounding_issues(answer, tool results, policy constants, store contacts) == []  → mode "gemini"
-otherwise / on any exception                                                       → offline answer + warning
+otherwise / on any exception                                                       → next provider + warning
 ```
+
+## Provider chain, fallback and tokens
+
+```text
+chain = session override (UI "Configurações") or defaults from .env, e.g. [Gemini, Local]
+for provider in chain:
+    skip if UsageMeter.remaining(provider) == 0          # per-session token budget
+    try provider.respond(message, state, tools, usage)   # usage filled after every API request
+    except quota (HTTP 429 / RESOURCE_EXHAUSTED) or any error → record, warn, next provider
+    if grounded → answer (fallback_used = provider is not the first)
+    else        → record, warn, next provider
+deterministic engine → answer
+transcript += (user message with e-mails tokenised, final answer)   # shared by all providers
+```
+
+* Usage numbers come from the provider responses (Gemini `usage_metadata.prompt_token_count /
+  candidates_token_count / total_token_count`; OpenAI-compatible `usage.prompt_tokens / completion_tokens /
+  total_tokens`).
+* A UI key is stored in a frozen `ProviderConfig` attached to that session only (`repr` hides it); "Nova conversa"
+  clears the conversation but keeps the session's settings and counters.
 
 ## Data-quality findings on the original snapshot
 
@@ -97,6 +118,7 @@ Produced by `DataStore` at start-up (see the notebook output or `agent.store.rep
 | Decision | Alternatives considered | Reason |
 |---|---|---|
 | Provider-agnostic tool layer; Gemini default, local model optional | Local model only; Gemini only | The case allows both; Gemini is faster and more reliable at tool use, a local model gives cost-free, offline operation. Grounding checks are shared. |
+| Ordered provider chain with per-session settings | Single global provider; restart to change | Lets the user switch models and keep answering when Gemini runs out of quota, without a key typed by one visitor affecting another. |
 | Native function calling, manual loop | LangChain agent; automatic function calling | Full control of validation, tracing, bounds and PII; fewer dependencies. |
 | Deterministic tools for numbers | LLM-generated pandas/SQL | Exact, testable arithmetic; no access path to customer data. |
 | BM25 over section chunks | Embeddings + vector DB | 28 chunks; lexical ranking is precise and explainable; no extra service. |
