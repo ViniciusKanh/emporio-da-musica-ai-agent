@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import html
 import logging
+import os
 import sys
 import uuid
 from pathlib import Path
@@ -336,8 +337,9 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--share", action="store_true", help="create a temporary public Gradio link")
     parser.add_argument("--offline", action="store_true", help="force deterministic mode (no LLM)")
-    parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=7860)
+    # Hosted environments such as Hugging Face Spaces set GRADIO_SERVER_NAME=0.0.0.0.
+    parser.add_argument("--host", default=os.getenv("GRADIO_SERVER_NAME", "127.0.0.1"))
+    parser.add_argument("--port", type=int, default=int(os.getenv("GRADIO_SERVER_PORT", "7860")))
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     agent = EmporioAgent(Settings.from_env(llm_mode="offline" if args.offline else None))
