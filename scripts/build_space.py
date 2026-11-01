@@ -67,6 +67,7 @@ def main() -> int:
     requirements = [line for line in (ROOT / "requirements.txt").read_text(encoding="utf-8").splitlines()
                     if line.strip() and not line.startswith("#") and not line.startswith("pytest")
                     and not line.startswith("gradio")]  # the Space image provides Gradio (sdk_version)
+    requirements.append("spaces")  # ZeroGPU helper; harmless on CPU hardware
     (OUT / "requirements.txt").write_text("\n".join(requirements) + "\n", encoding="utf-8")
     (OUT / "README.md").write_text(CARD.format(gradio=gradio_version()), encoding="utf-8")
     files = sorted(p.relative_to(OUT).as_posix() for p in OUT.rglob("*") if p.is_file())

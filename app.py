@@ -25,6 +25,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 
+try:  # Hugging Face ZeroGPU hardware stops a Space that declares no @spaces.GPU function at start-up.
+    import spaces  # noqa: E402 - only present on Hugging Face Spaces
+
+    @spaces.GPU(duration=1)
+    def _zerogpu_placeholder() -> None:
+        """Never called: the agent needs no GPU (tools are pandas + BM25; LLMs are reached over HTTP)."""
+except ImportError:
+    spaces = None
+
 import gradio as gr  # noqa: E402
 import pandas as pd  # noqa: E402
 
